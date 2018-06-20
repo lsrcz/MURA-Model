@@ -22,7 +22,7 @@ def train_model(model, criterion, optimizer, dataloaders, scheduler, dataset_siz
             else:
                 model.eval()
             running_loss = 0.0
-            running_corrects = torch.Tensor([0.0])
+            running_corrects = 0
             for i, data in enumerate(tqdm(dataloaders[phase])):
                 images = data['image']
                 labels = data['label'].type(torch.FloatTensor)
@@ -45,11 +45,11 @@ def train_model(model, criterion, optimizer, dataloaders, scheduler, dataset_siz
                 running_corrects += torch.sum(preds.transpose(0,1) == labels.data)
 
             epoch_loss = running_loss / dataset_sizes[phase]
-            print(running_corrects)
-            print(dataset_sizes[phase])
-            epoch_acc = running_corrects / dataset_sizes[phase]
-            print(epoch_acc.dtype)
-            print(running_corrects.dtype)
+            #print(running_corrects)
+            #print(dataset_sizes[phase])
+            epoch_acc = running_corrects.type(torch.FloatTensor) / dataset_sizes[phase]
+            #print(epoch_acc.dtype)
+            #print(running_corrects.dtype)
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc
             ))

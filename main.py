@@ -6,7 +6,7 @@ from train import train_model
 dataloaders, nt, at, wt1, wt0, dataset_sizes = get_dataloaders(
     study_name='XR_WRIST',
     data_dir='MURA-v1.0',
-    batch_size=20,
+    batch_size=30,
     shuffle=True
 )
 
@@ -30,6 +30,6 @@ criterion = Loss(wt1, wt0).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=1, verbose=True)
 
-model = train_model(model, criterion, optimizer, dataloaders, scheduler, dataset_sizes, 50)
+model = train_model(model, criterion, optimizer, dataloaders, scheduler, dataset_sizes, 500)
 torch.save(model.state_dict(), 'models/model.pth')
 
