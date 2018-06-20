@@ -6,10 +6,8 @@ from torchvision import transforms
 from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets.folder import pil_loader
 import re
-
-phases = ['train', 'valid']
-study_names = ['XR_ELBOW', 'XR_FINGER', 'XR_FOREARM', 'XR_HAND', 'XR_HUMERUS', 'XR_SHOULDER', 'XR_WRIST']
-
+from common import *
+from utils import *
 
 class MURA_Dataset(Dataset):
     def _select_study(self, study_name):
@@ -45,7 +43,7 @@ class MURA_Dataset(Dataset):
         label = self.df.iloc[item,1]
         if self.transform:
             image = self.transform(image)
-        sample = {'image': image, 'label': label, 'nt': self.nt, 'at': self.at}
+        sample = {'image': image, 'label': label}
         return sample
 
 
@@ -66,15 +64,19 @@ def get_dataloaders(study_name=None, data_dir='MURA-v1.0', batch_size=8, shuffle
             transforms.Normalize(mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225])
         ]),
     }
-    image_datasets = {x: MURA_Dataset(x, study_name, data_dir, data_transforms) for x in phases}
+    image_datasets = {x: MURA_Dataset(x, study_name, data_dir, data_transforms[x]) for x in phases}
     dataloader = \
         {x: DataLoader(image_datasets[x], batch_size=batch_size, shuffle=shuffle, num_workers=32) for x in phases}
-
-    return dataloader
+    nt = {x: image_datasets[x].nt for x in phases}
+    at = {x: image_datasets[x].at for x in phases}
+    wt1 = {x: n_p(nt[x] / (nt[x] + at[x])) for x in phases}
+    wt0 = {x: n_p(at[x] / (nt[x] + at[x])) for x in phases}
+    dataset_sizes = {x: len(image_datasets[x]) for x in phases}
+    return dataloader, nt, at, wt1, wt0, dataset_sizes
 
 
 def main():
-    dataloaders = get_dataloaders('XR_ELBOW')
+    dataloaders, _, _, _, _, _ = get_dataloaders('XR_ELBOW', batch_size=8)
     print(len(dataloaders['train']))
 
 
