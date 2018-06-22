@@ -7,7 +7,7 @@ import os
 dataloaders, dataset_sizes = get_dataloaders(
     study_name=None,
     data_dir='MURA-v1.0',
-    batch_size=30,
+    batch_size=8,
     shuffle=True
 )
 

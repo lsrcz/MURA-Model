@@ -10,11 +10,15 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
     since = time.time()
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
+    best_idx = -1
     costs = {x:[] for x in phases}
     accs = {x:[] for x in phases}
     print('Train batches:', len(dataloaders['train']))
     print('Valid batches:', len(dataloaders['valid']), '\n')
     for epoch in range(num_epochs):
+        if epoch > best_idx + 10:
+            print("The accuracy didn't improved in 10 epoches")
+            break
         print('Epoch {}/{}'.format(epoch + 1, num_epochs))
         print('-' * 10)
         for phase in phases:
@@ -62,6 +66,7 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
             if phase == 'valid':
                 scheduler.step(epoch_loss)
                 if epoch_acc > best_acc:
+                    best_idx = epoch
                     best_acc = epoch_acc
                     best_model_wts = copy.deepcopy(model.state_dict())
         time_elapsed = time.time() - since
