@@ -4,8 +4,10 @@ import torch
 from torchnet import meter
 from common import *
 from tqdm import tqdm
+import torch.nn.functional as F
 
-def train_model(model, criterion, optimizer, dataloaders, scheduler, dataset_sizes, num_epochs):
+
+def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epochs):
     since = time.time()
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
@@ -26,16 +28,19 @@ def train_model(model, criterion, optimizer, dataloaders, scheduler, dataset_siz
             for i, data in enumerate(tqdm(dataloaders[phase])):
                 images = data['image']
                 labels = data['label'].type(torch.FloatTensor)
+                weights = data['metadata']['wt']
 
                 images = images.to(device)
                 labels = labels.to(device)
+                weights = weights.to(device)
 
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(images)
 
-                    loss = criterion(outputs, labels, phase).sum()
+                    #loss = criterion(outputs, labels, phase).sum()
+                    loss = F.binary_cross_entropy(outputs, labels, weight=weights)
                     running_loss += loss
                     if phase == 'train':
                         loss.backward()
