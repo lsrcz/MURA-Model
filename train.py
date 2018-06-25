@@ -49,8 +49,8 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                         loss.backward()
                         optimizer.step()
                 running_loss += loss.item() * images.size(0)
-                preds = (outputs > 0.5).type(torch.cuda.FloatTensor)
-                running_corrects += torch.sum(preds.transpose(0,1) == labels.data)
+                preds = (outputs > 0.5).type(torch.LongTensor)
+                running_corrects += torch.sum(preds.transpose(0,1) == data['label'].data)
 
             epoch_loss = running_loss / dataset_sizes[phase]
             #print(running_corrects)
