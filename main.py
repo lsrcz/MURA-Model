@@ -5,7 +5,7 @@ from train import train_model
 import os
 
 dataloaders, dataset_sizes = get_dataloaders(
-    study_name=None,
+    study_name='XR_HUMERUS',
     data_dir='MURA-v1.0',
     batch_size=50,
     shuffle=True

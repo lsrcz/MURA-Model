@@ -87,14 +87,33 @@ def get_dataloaders(study_name=None, data_dir='MURA-v1.0', batch_size=8, shuffle
         'valid': transforms.Compose([
             transforms.Resize((320, 320)),
             transforms.CenterCrop(224),
+            #transforms.Resize((224,224)),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ]),
+        'valid_tencrop': transforms.Compose([
+            transforms.Resize((320, 320)),
+            transforms.TenCrop(224),
+            # transforms.Resize((224,224)),
+            transforms.Lambda(
+                lambda crops: torch.stack([
+                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(
+                        transforms.ToTensor()(crop)
+                    )
+                    for crop in crops
+                ])
+            )
+            #transforms.ToTensor(),
+            #transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
     }
     image_datasets = {x: MURA_Dataset(x, study_name, data_dir, data_transforms[x]) for x in phases}
+    image_datasets_valid_tencrop = MURA_Dataset('valid', study_name, data_dir, data_transforms['valid_tencrop'])
     dataloader = \
         {x: DataLoader(image_datasets[x], batch_size=batch_size, shuffle=shuffle, num_workers=32) for x in phases}
     dataset_sizes = {x: len(image_datasets[x]) for x in phases}
+    dataloader['valid_tencrop'] = DataLoader(image_datasets_valid_tencrop, batch_size=1, shuffle=shuffle, num_workers=32)
+    dataset_sizes['valid_tencrop'] = dataset_sizes['valid']
     return dataloader, dataset_sizes
 
 

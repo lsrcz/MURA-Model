@@ -3,8 +3,13 @@ from common import *
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class AUCMeter:
-    def __init__(self):
+
+    def __init__(self, label, color, linestyle):
+        self.label = label
+        self.color = color
+        self.linestyle = linestyle
         self.reset()
 
     def reset(self):
@@ -56,9 +61,47 @@ class AUCMeter:
 
     def plot(self):
         area, tpr, fpr = self.value()
-        plt.plot(fpr, tpr)
-        plt.title("AUC curve")
+        plt.plot(fpr, tpr, label=self.label, color=self.color, linestyle=self.linestyle)
+        plt.title("AUC curve: " + self.label)
         plt.xlabel('fpr')
         plt.ylabel('tpr')
+        plt.xlim(0,1)
+        plt.ylim(0,1)
         plt.text(0.5, 0.5, 'area: ' + str(area))
         plt.show()
+
+class AUCMeterMulti:
+
+    def __init__(self):
+        self.meters = {}
+
+    def add_meter(self, label, color, linestyle):
+        assert not label in self.meters
+        self.meters[label] = AUCMeter(label, color, linestyle)
+
+    def __len__(self):
+        return len(self.meters)
+
+    def __getitem__(self, item):
+        return self.meters[item]
+
+    def plot(self):
+        allstr = "Areas:\n"
+        fig = plt.figure(figsize=(12,9), dpi=180)
+        ax = fig.gca()
+        ax.set_title("AUC curves")
+        ax.set_xlabel('fpr')
+        ax.set_ylabel('tpr')
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_aspect('equal')
+
+        for name in self.meters.keys():
+            meter = self.meters[name]
+            area, tpr, fpr = meter.value()
+            ax.plot(fpr, tpr, linewidth=1, label=meter.label, color=meter.color, linestyle=meter.linestyle)
+            allstr += (name + ": " + ("%.4f" % area) + "\n")
+        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+        plt.text(0.5, 0.5, allstr)
+        plt.show()
+
