@@ -30,11 +30,15 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
             else:
                 model.eval()
             running_loss = 0.0
-            running_corrects = 0
+            running_total = 0
+            running_corrects = {'XR_ELBOW': 0.0, 'XR_FINGER': 0.0, 'XR_FOREARM': 0.0, 'XR_HAND': 0.0, 'XR_HUMERUS': 0.0,
+                                'XR_SHOULDER': 0.0, 'XR_WRIST': 0.0}
             for i, data in enumerate(tqdm(dataloaders[phase])):
                 images = data['image']
                 labels = data['label'].type(torch.FloatTensor)
                 weights = data['metadata']['wt']
+                study_name = data['metadata']['study_name']
+                sizes = data['metadata']['dataset_size'].numpy()
 
                 images = images.to(device)
                 labels = labels.to(device)
@@ -60,17 +64,23 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                         aucmeter[phase].add(outputs, labels)
                 running_loss += loss.item() * images.size(0)
                 preds = (outputs > 0.5).type(torch.LongTensor)
-                running_corrects += torch.sum(preds.transpose(0,1) == data['label'].data)
+                running_total += torch.sum(preds.transpose(0, 1) == data['label'].data)
+                for i in range(len(study_name)):
+                    running_corrects[study_name[i]] += float((preds[i] == data['label'].data[i]).cpu().numpy()[0]) / \
+                                                       sizes[i]
 
             epoch_loss = running_loss / dataset_sizes[phase]
             #print(running_corrects)
             #print(dataset_sizes[phase])
-            epoch_acc = running_corrects.type(torch.FloatTensor) / dataset_sizes[phase]
+            epoch_acc = running_total.type(torch.FloatTensor) / dataset_sizes[phase]
             #print(epoch_acc.dtype)
             #print(running_corrects.dtype)
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc
             ))
+            print('Acc:')
+            for key, value in running_corrects.items():
+                print('{}:{:.4f}'.format(key, value))
             costs[phase].append(epoch_loss)
             accs[phase].append(epoch_acc)
             if phase == 'valid_tencrop':
