@@ -12,13 +12,14 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
     best_acc = 0.0
     best_idx = -1
     costs = {x:[] for x in phases + ['valid_tencrop']}
-    accs = {x:[] for x in phases + ['valid_tencrop']}
+    accs = {x:[] for x in phases + ['valid_tencrop', 'valid_study']}
     print('Train batches:', len(dataloaders['train']))
     print('Valid batches:', len(dataloaders['valid']), '\n')
     for epoch in range(num_epochs):
         aucmeter = AUCMeterMulti()
         aucmeter.add_meter('valid', 'red', '-')
         aucmeter.add_meter('valid_tencrop', 'green', '-')
+        aucmeter.add_meter('valid_study', 'blue', '-')
         if epoch > best_idx + 10:
             print("The accuracy didn't improved in 10 epoches")
             break
@@ -36,9 +37,10 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
             for i, data in enumerate(tqdm(dataloaders[phase])):
                 images = data['image']
                 labels = data['label'].type(torch.FloatTensor)
-                weights = data['metadata']['wt']
-                study_name = data['metadata']['study_name']
-                sizes = data['metadata']['dataset_size'].numpy()
+                metadatas = data['metadata']
+                weights = metadatas['wt']
+                study_name = metadatas['study_name']
+                sizes = metadatas['dataset_size'].numpy()
 
                 images = images.to(device)
                 labels = labels.to(device)
@@ -70,17 +72,16 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                                                        sizes[i]
 
             epoch_loss = running_loss / dataset_sizes[phase]
-            #print(running_corrects)
-            #print(dataset_sizes[phase])
             epoch_acc = running_total.type(torch.FloatTensor) / dataset_sizes[phase]
-            #print(epoch_acc.dtype)
-            #print(running_corrects.dtype)
+
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc
             ))
             print('Acc:')
             for key, value in running_corrects.items():
                 print('{}:{:.4f}'.format(key, value))
+
+
             costs[phase].append(epoch_loss)
             accs[phase].append(epoch_acc)
             if phase == 'valid_tencrop':
@@ -91,7 +92,48 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                     best_model_wts = copy.deepcopy(model.state_dict())
             # if phase != 'train':
             #     aucmeter[phase].plot()
+        for phase in ['valid_study']:
+            model.eval()
+            running_total = 0
+            running_corrects = {'XR_ELBOW': 0.0, 'XR_FINGER': 0.0, 'XR_FOREARM': 0.0, 'XR_HAND': 0.0, 'XR_HUMERUS': 0.0,
+                                'XR_SHOULDER': 0.0, 'XR_WRIST': 0.0}
+            for i, data in enumerate(tqdm(dataloaders[phase])):
+                images = data['images']
+                labels = data['label'].type(torch.FloatTensor)
+                metadatas = data['metadata']
+                study_name = metadatas['study_name']
+                sizes = metadatas['dataset_size'].numpy()
+
+                images = images.to(device)
+                labels = labels.to(device)
+
+                optimizer.zero_grad()
+
+                with torch.no_grad():
+                    bs, ncrops, c, h, w = images.size()
+                    outputs = model(images.view(-1, c, h, w))
+                    outputs = outputs.view(bs, ncrops, -1).mean(1)
+                    aucmeter[phase].add(outputs, labels)
+
+                preds = (outputs > 0.5).type(torch.LongTensor)
+                running_total += torch.sum(preds.transpose(0, 1) == data['label'].data)
+                for i in range(len(study_name)):
+                    running_corrects[study_name[i]] += float((preds[i] == data['label'].data[i]).cpu().numpy()[0]) / \
+                                                       sizes[i]
+
+            epoch_acc = running_total.type(torch.FloatTensor) / dataset_sizes[phase]
+
+            print('{} Acc: {:.4f}'.format(
+                phase, epoch_acc
+            ))
+            print('Acc:')
+            for key, value in running_corrects.items():
+                print('{}:{:.4f}'.format(key, value))
+
+            accs[phase].append(epoch_acc)
+
         aucmeter.plot()
+
         time_elapsed = time.time() - since
         print('Time elapsed: {:.0f}m {:.0f}s'.format(
             time_elapsed // 60, time_elapsed % 60

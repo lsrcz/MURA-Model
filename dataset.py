@@ -57,9 +57,18 @@ class MURA_Dataset(Dataset):
         label = self.df.iloc[item, 1]
         if self.transform:
             image = self.transform(image)
-        study_name = imgPath.split('/')[2]
+        splitedPath = imgPath.split('/')
+        study_name = splitedPath[2]
+        imgnum = int(splitedPath[5][5:-4])
+        jointDirPath = '/'.join(splitedPath[:-1])
+        more = 0
+        while item + more + 1 < len(self.df) and self.df.iloc[item + more + 1, 0].startswith(jointDirPath):
+            more += 1
+
         metadata = {
             'study_name': study_name,
+            'patient/study': splitedPath[3] + '/' + splitedPath[4],
+            'total_img_num': imgnum + more,
             'nt': self.nt[study_name],
             'at': self.at[study_name],
             'dataset_size': self.sizes[study_name],
@@ -73,8 +82,81 @@ class MURA_Dataset(Dataset):
         sample = {'image': image, 'label': label, 'metadata': metadata}
         return sample
 
+class MURA_Study_Dataset(Dataset):
 
-def get_dataloaders(study_name=None, data_dir='MURA-v1.0', batch_size=8, shuffle=True):
+    def _firsts(self, df):
+        def closure(s):
+            return '/'.join(df.loc[s].iloc[0].split('/')[:-1])
+        return closure
+
+    def _select_study(self, study_name):
+        studydf = self._fulldf[
+            list(map(lambda x: self._fulldf.path.at[x].split('/')[2] == study_name, range(self._fulldf.path.size)))
+        ]
+        return studydf
+
+    def _gen_tot_cnt(self):
+        self.sizes = {}
+        for name in study_names:
+            studydf = self._select_study(name)
+            self.sizes[name] = len(studydf.groupby(self._firsts(studydf)))
+
+    def __init__(self, phase, study_name=None, data_dir='MURA-v1.0', transform=None):
+        assert phase in phases
+        if study_name:
+            assert study_name in study_names
+
+        self._fulldf = pd.read_csv(data_dir + '/' + phase + '.csv', names=['path', 'label'])
+        self._fulldf.transform({'path': lambda x: x.str.replace(r'^[\w\-.\d_]+(?=/)', data_dir), 'label': lambda x: x})
+        if study_name:
+            self.df = self._select_study(study_name)
+        else:
+            self.df = self._fulldf
+
+        self._gen_tot_cnt()
+
+        self.gb = list(self.df.groupby(self._firsts(self.df)))
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.gb)
+
+    def __getitem__(self, item):
+        _, df = self.gb[item]
+        label = df.iloc[0,1]
+        images = []
+
+        splitedPath = None
+
+        for idx in range(len(df)):
+            imgPath = df.iloc[idx, 0]
+            image = pil_loader(imgPath)
+            if self.transform:
+                image = self.transform(image)
+            images.append(image)
+            splitedPath = imgPath.split('/')
+
+        assert splitedPath
+        study_name =  splitedPath[2]
+
+        # -1 means no data
+
+        metadata = {
+            'study_name': study_name,
+            'patient/study': splitedPath[3] + '/' + splitedPath[4],
+            'total_img_num': -1,
+            'nt': -1,
+            'at': -1,
+            'dataset_size': self.sizes[study_name],
+            'wt1': -1,
+            'wt0': -1
+        }
+
+        sample = {'images': torch.stack(images), 'label': label, 'metadata': metadata}
+        return sample
+
+
+def get_dataloaders(study_name=None, data_dir='MURA-v1.0', batch_size=8, batch_eval_ten=12, shuffle=True):
     data_transforms = {
         'train': transforms.Compose([
             transforms.Resize((320, 320)),
@@ -108,12 +190,19 @@ def get_dataloaders(study_name=None, data_dir='MURA-v1.0', batch_size=8, shuffle
         ])
     }
     image_datasets = {x: MURA_Dataset(x, study_name, data_dir, data_transforms[x]) for x in phases}
-    image_datasets_valid_tencrop = MURA_Dataset('valid', study_name, data_dir, data_transforms['valid_tencrop'])
     dataloader = \
         {x: DataLoader(image_datasets[x], batch_size=batch_size, shuffle=shuffle, num_workers=32) for x in phases}
     dataset_sizes = {x: len(image_datasets[x]) for x in phases}
-    dataloader['valid_tencrop'] = DataLoader(image_datasets_valid_tencrop, batch_size=1, shuffle=shuffle, num_workers=32)
+
+    # can only be trained on Titan Xp or GPUs with enough graph memory
+    image_datasets_valid_tencrop = MURA_Dataset('valid', study_name, data_dir, data_transforms['valid_tencrop'])
+    dataloader['valid_tencrop'] = DataLoader(image_datasets_valid_tencrop, batch_size=batch_eval_ten, shuffle=shuffle, num_workers=32)
     dataset_sizes['valid_tencrop'] = dataset_sizes['valid']
+
+    image_study_datasets = MURA_Study_Dataset('valid', study_name, data_dir, data_transforms['valid'])
+    dataloader['valid_study'] = DataLoader(image_study_datasets, batch_size=1, shuffle=False, num_workers=32)
+    dataset_sizes['valid_study'] = len(image_study_datasets)
+
     return dataloader, dataset_sizes
 
 

@@ -8,6 +8,7 @@ dataloaders, dataset_sizes = get_dataloaders(
     study_name='XR_HUMERUS',
     data_dir='MURA-v1.0',
     batch_size=50,
+    batch_eval_ten=15,
     shuffle=True
 )
 
