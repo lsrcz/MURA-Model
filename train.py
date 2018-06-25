@@ -4,7 +4,7 @@ import torch
 from common import *
 from tqdm import tqdm
 import torch.nn.functional as F
-
+from meter import AUCMeter
 
 def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epochs):
     since = time.time()
@@ -16,6 +16,7 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
     print('Train batches:', len(dataloaders['train']))
     print('Valid batches:', len(dataloaders['valid']), '\n')
     for epoch in range(num_epochs):
+        aucmeter = AUCMeter()
         if epoch > best_idx + 10:
             print("The accuracy didn't improved in 10 epoches")
             break
@@ -48,6 +49,8 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                     if phase == 'train':
                         loss.backward()
                         optimizer.step()
+                    else:
+                        aucmeter.add(outputs, labels)
                 running_loss += loss.item() * images.size(0)
                 preds = (outputs > 0.5).type(torch.LongTensor)
                 running_corrects += torch.sum(preds.transpose(0,1) == data['label'].data)
@@ -70,6 +73,7 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                     best_acc = epoch_acc
                     best_model_wts = copy.deepcopy(model.state_dict())
         time_elapsed = time.time() - since
+        aucmeter.plot()
         print('Time elapsed: {:.0f}m {:.0f}s'.format(
             time_elapsed // 60, time_elapsed % 60
         ))
