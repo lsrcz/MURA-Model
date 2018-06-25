@@ -23,10 +23,12 @@ class MURA_Dataset(Dataset):
         self.at = {}
         self.wt1 = {}
         self.wt0 = {}
+        self.sizes = {}
         for name in study_names:
             studydf = self._select_study(name)
             nt = studydf.label.value_counts().iloc[0]
             at = studydf.label.value_counts().iloc[1]
+            self.sizes[name] = nt + at
             self.nt[name] = nt
             self.at[name] = at
             self.wt1[name] = (nt / (nt + at)).astype(np.float32)
@@ -60,6 +62,7 @@ class MURA_Dataset(Dataset):
             'study_name': study_name,
             'nt': self.nt[study_name],
             'at': self.at[study_name],
+            'dataset_size': self.sizes[study_name],
             'wt1': self.wt1[study_name],
             'wt0': self.wt0[study_name]
         }
@@ -96,7 +99,7 @@ def get_dataloaders(study_name=None, data_dir='MURA-v1.0', batch_size=8, shuffle
 
 
 def main():
-    dataloaders, _ = get_dataloaders(None, batch_size=8)
+    dataloaders, dataset_sizes = get_dataloaders(None, batch_size=8)
     for i, data in enumerate(tqdm(dataloaders['train'])):
         j = 0
 
