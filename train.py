@@ -4,7 +4,8 @@ import torch
 from common import *
 from tqdm import tqdm
 import torch.nn.functional as F
-from meter import AUCMeterMulti
+from meter import AUCMeterMulti, ConfusionMatrixMeterMulti
+
 
 def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epochs):
     since = time.time()
@@ -20,6 +21,7 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
         aucmeter.add_meter('valid', 'red', '-')
         aucmeter.add_meter('valid_tencrop', 'green', '-')
         aucmeter.add_meter('valid_study', 'blue', '-')
+        confusion = ConfusionMatrixMeterMulti()
         if epoch > best_idx + 10:
             print("The accuracy didn't improved in 10 epoches")
             break
@@ -31,9 +33,6 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
             else:
                 model.eval()
             running_loss = 0.0
-            running_total = 0
-            running_corrects = {'XR_ELBOW': 0.0, 'XR_FINGER': 0.0, 'XR_FOREARM': 0.0, 'XR_HAND': 0.0, 'XR_HUMERUS': 0.0,
-                                'XR_SHOULDER': 0.0, 'XR_WRIST': 0.0}
             for i, data in enumerate(tqdm(dataloaders[phase])):
                 images = data['image']
                 labels = data['label'].type(torch.FloatTensor)
@@ -56,7 +55,6 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                     else:
                         outputs = model(images)
 
-                    #loss = criterion(outputs, labels, phase).sum()
                     loss = F.binary_cross_entropy(outputs, labels, weight=weights)
                     running_loss += loss
                     if phase == 'train':
@@ -65,21 +63,21 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                     else:
                         aucmeter[phase].add(outputs, labels)
                 running_loss += loss.item() * images.size(0)
-                preds = (outputs > 0.5).type(torch.LongTensor)
-                running_total += torch.sum(preds.transpose(0, 1) == data['label'].data)
-                for i in range(len(study_name)):
-                    running_corrects[study_name[i]] += float((preds[i] == data['label'].data[i]).cpu().numpy()[0]) / \
-                                                       sizes[i]
+                preds = (outputs > 0.5).type(torch.LongTensor).reshape(-1)
+
+                confusion.add(preds, labels, study_name)
 
             epoch_loss = running_loss / dataset_sizes[phase]
-            epoch_acc = running_total.type(torch.FloatTensor) / dataset_sizes[phase]
+            epoch_acc = confusion.accuracy()
 
-            print('{} Loss: {:.4f} Acc: {:.4f}'.format(
-                phase, epoch_loss, epoch_acc
+            print('{} Loss: {:.4f} Acc: {:.4f} F1: {:.4f} Kappa: {:.4f}'.format(
+                phase, epoch_loss, confusion.accuracy(), confusion.F1(), confusion.kappa()
             ))
-            print('Acc:')
-            for key, value in running_corrects.items():
-                print('{}:{:.4f}'.format(key, value))
+            print('{:>13}{:>7}{:>7}{:>7}'.format('Study', 'Acc', 'F1', 'Kappa'))
+            for key in confusion.names:
+                print('{:>13} {:6.4f} {:6.4f} {:6.4f}'.format(
+                    key, confusion.accuracy(key), confusion.F1(key), confusion.kappa(key)
+                ))
 
 
             costs[phase].append(epoch_loss)
@@ -90,13 +88,9 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                     best_idx = epoch
                     best_acc = epoch_acc
                     best_model_wts = copy.deepcopy(model.state_dict())
-            # if phase != 'train':
-            #     aucmeter[phase].plot()
         for phase in ['valid_study']:
             model.eval()
-            running_total = 0
-            running_corrects = {'XR_ELBOW': 0.0, 'XR_FINGER': 0.0, 'XR_FOREARM': 0.0, 'XR_HAND': 0.0, 'XR_HUMERUS': 0.0,
-                                'XR_SHOULDER': 0.0, 'XR_WRIST': 0.0}
+            confusion = ConfusionMatrixMeterMulti()
             for i, data in enumerate(tqdm(dataloaders[phase])):
                 images = data['images']
                 labels = data['label'].type(torch.FloatTensor)
@@ -115,25 +109,19 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                     outputs = outputs.view(bs, ncrops, -1).mean(1)
                     aucmeter[phase].add(outputs, labels)
 
-                preds = (outputs > 0.5).type(torch.LongTensor)
-                running_total += torch.sum(preds.transpose(0, 1) == data['label'].data)
-                for i in range(len(study_name)):
-                    running_corrects[study_name[i]] += float((preds[i] == data['label'].data[i]).cpu().numpy()[0]) / \
-                                                       sizes[i]
+                preds = (outputs > 0.5).type(torch.LongTensor).reshape(-1)
+                confusion.add(preds, labels, study_name)
 
-            epoch_acc = running_total.type(torch.FloatTensor) / dataset_sizes[phase]
-
-            print('{} Acc: {:.4f}'.format(
-                phase, epoch_acc
+            print('{} Acc: {:.4f} F1: {:.4f} Kappa: {:.4f}'.format(
+                phase, confusion.accuracy(), confusion.F1(), confusion.kappa()
             ))
-            print('Acc:')
-            for key, value in running_corrects.items():
-                print('{}:{:.4f}'.format(key, value))
-
-            accs[phase].append(epoch_acc)
-
+            print('{:>13}{:>7}{:>7}{:>7}'.format('Study', 'Acc', 'F1', 'Kappa'))
+            for key in confusion.names:
+                print('{:>13} {:6.4f} {:6.4f} {:6.4f}'.format(
+                    key, confusion.accuracy(key), confusion.F1(key), confusion.kappa(key)
+                ))
+            accs[phase].append(confusion.accuracy())
         aucmeter.plot()
-
         time_elapsed = time.time() - since
         print('Time elapsed: {:.0f}m {:.0f}s'.format(
             time_elapsed // 60, time_elapsed % 60
