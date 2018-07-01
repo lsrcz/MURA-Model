@@ -5,6 +5,7 @@ from common import *
 from tqdm import tqdm
 import torch.nn.functional as F
 from meter import AUCMeterMulti, ConfusionMatrixMeterMulti
+from model import MURA_Net_Binary, MURA_Net
 
 
 def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epochs):
@@ -27,6 +28,7 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
             break
         print('Epoch {}/{}'.format(epoch + 1, num_epochs))
         print('-' * 10)
+
         for phase in phases + ['valid_tencrop']:
             if phase == 'train':
                 model.train(phase=='train')
@@ -34,7 +36,7 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                 model.eval()
             running_loss = 0.0
             for i, data in enumerate(tqdm(dataloaders[phase])):
-                images = data['image']
+                images = data['image']['norm']
                 labels = data['label'].type(torch.FloatTensor)
                 metadatas = data['metadata']
                 weights = metadatas['wt']
@@ -54,7 +56,8 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                         outputs = outputs.view(bs, ncrops, -1).mean(1)
                     else:
                         outputs = model(images)
-
+                    if isinstance(model, MURA_Net_Binary):
+                        outputs = outputs[:,1]
                     loss = F.binary_cross_entropy(outputs, labels, weight=weights)
                     running_loss += loss
                     if phase == 'train':
@@ -88,11 +91,12 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                     best_idx = epoch
                     best_acc = epoch_acc
                     best_model_wts = copy.deepcopy(model.state_dict())
+
         for phase in ['valid_study']:
             model.eval()
             confusion = ConfusionMatrixMeterMulti()
             for i, data in enumerate(tqdm(dataloaders[phase])):
-                images = data['images']
+                images = data['images']['norm']
                 labels = data['label'].type(torch.FloatTensor)
                 metadatas = data['metadata']
                 study_name = metadatas['study_name']
@@ -107,6 +111,8 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                     bs, ncrops, c, h, w = images.size()
                     outputs = model(images.view(-1, c, h, w))
                     outputs = outputs.view(bs, ncrops, -1).mean(1)
+                    if isinstance(model, MURA_Net_Binary):
+                        outputs = outputs[:,1]
                     aucmeter[phase].add(outputs, labels)
 
                 preds = (outputs > 0.5).type(torch.LongTensor).reshape(-1)
@@ -121,7 +127,10 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                     key, confusion.accuracy(key), confusion.F1(key), confusion.kappa(key)
                 ))
             accs[phase].append(confusion.accuracy())
-        aucmeter.plot()
+        # aucmeter.plot()
+        for label in aucmeter.meters:
+            auc, _, _ = aucmeter.meters[label].value()
+            print(label, auc)
         time_elapsed = time.time() - since
         print('Time elapsed: {:.0f}m {:.0f}s'.format(
             time_elapsed // 60, time_elapsed % 60

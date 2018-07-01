@@ -152,7 +152,7 @@ class MURA_Study_Dataset(Dataset):
             'wt0': -1
         }
 
-        sample = {'images': torch.stack(images), 'label': label, 'metadata': metadata}
+        sample = {'images': {imglabel: torch.stack([img[imglabel] for img in images]) for imglabel in ['orig','norm']}, 'label': label, 'metadata': metadata}
         return sample
 
 
@@ -164,26 +164,34 @@ def get_dataloaders(study_name=None, data_dir='MURA-v1.0', batch_size=8, batch_e
             transforms.RandomHorizontalFlip(),
             transforms.RandomRotation(20),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            transforms.Lambda(lambda t:{
+                'orig':t,
+                'norm':transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(t)}
+            )
         ]),
         'valid': transforms.Compose([
             transforms.Resize((320, 320)),
             transforms.CenterCrop(224),
             #transforms.Resize((224,224)),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            transforms.Lambda(lambda t: {
+                'orig': t,
+                'norm': transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(t)}
+            )
         ]),
         'valid_tencrop': transforms.Compose([
             transforms.Resize((320, 320)),
             transforms.TenCrop(224),
             # transforms.Resize((224,224)),
             transforms.Lambda(
-                lambda crops: torch.stack([
+                lambda crops: {
+                    'orig': torch.stack([transforms.ToTensor()(crop) for crop in crops]),
+                    'norm': torch.stack([
                     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(
                         transforms.ToTensor()(crop)
                     )
                     for crop in crops
-                ])
+                ])}
             )
             #transforms.ToTensor(),
             #transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
