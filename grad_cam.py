@@ -4,13 +4,19 @@
 # Author:   Kazuto Nakashima
 # URL:      http://kazuto1011.github.io
 # Created:  2017-05-26
-
+import cv2
 from collections import OrderedDict
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from torchvision.datasets.folder import pil_loader
+from torchvision.models import DenseNet
+from torchvision.transforms import transforms
+
+from common import device
+from model import MURA_Net
 
 
 class _PropagationBase(object):
@@ -115,3 +121,50 @@ class GradCAM(_PropagationBase):
         gcam /= gcam.max()
 
         return gcam.detach().cpu().numpy()
+
+def grad_cam(model, image, target_layer='features.denseblock4', upsample_size=(240,240)):
+    model.eval()
+    gcam = GradCAM(model=model)
+    probs, idx = gcam.forward(image)
+
+    gcam.backward(idx=idx[0])
+    output = gcam.generate(target_layer=target_layer)
+    output = (output * 255).astype(np.uint8)
+    output = cv2.resize(output, upsample_size)
+    return output
+
+def main():
+    model = MURA_Net()
+    model = model.to(device)
+    model.load_state_dict(torch.load('./models/model.pth'))
+
+    preprocess = transforms.Compose([
+        transforms.Resize((320, 320)),
+        transforms.CenterCrop(224),
+        # transforms.Resize((224,224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+
+    paths = [
+        './MURA-v1.0/valid/XR_WRIST/patient11323/study1_positive/image1.png',
+        './MURA-v1.0/valid/XR_FOREARM/patient11470/study1_positive/image2.png',
+        './MURA-v1.0/valid/XR_FOREARM/patient11470/study1_positive/image3.png'
+    ]
+
+    img_pils = map(pil_loader, paths)
+    img_tensors = list(map(preprocess, img_pils))
+
+    img_variable = torch.stack(img_tensors).to(device)
+    print(img_tensors[0])
+
+    x = grad_cam(model, img_variable[2].unsqueeze(0))
+    print(x)
+
+    #o, cam = predictWithCAM(model, img_variable)
+    #for i in range(len(paths)):
+    #    showCAMImage(paths[i], cam[i])
+    #pass
+
+if __name__ == '__main__':
+    main()
