@@ -9,6 +9,7 @@ from torch.nn import functional as F
 import torch
 import numpy as np
 import cv2
+import matplotlib.pyplot as plt
 # networks such as googlenet, resnet, densenet already use global average pooling at the end, so CAM could be used directly.
 net = MURA_Net()
 net = net.to(device)
@@ -69,7 +70,11 @@ print('output CAM.jpg for the top1 prediction: %d'%preds)
 img = cv2.imread('./MURA-v1.0/valid/XR_FOREARM/patient11470/study1_positive/image1.png')
 height, width, _ = img.shape
 heatmap = cv2.applyColorMap(cv2.resize(CAMs[0],(width, height)), cv2.COLORMAP_JET)
-result = heatmap * 0.3 + img * 0.5
+result = (heatmap * 0.3 + img * 0.5)
+#resultimg = Image.fromarray(cv2.cvtColor(result,cv2.COLOR_BGR2RGB))
+#plt.figure(figsize=(12,9),dpi=180)
+#plt.imshow(resultimg)
+#plt.show()
 cv2.imwrite('CAM.jpg', result)
 img = Image.open('CAM.jpg')
 img.show()
