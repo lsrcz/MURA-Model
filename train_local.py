@@ -158,7 +158,7 @@ def train_local(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                     best_idx = epoch
                     best_acc = temp_auc
                     best_model_wts = copy.deepcopy(model.state_dict())
-                    torch.save(model.state_dict(), 'models/model_local_' + str(epoch) + '_' + str(temp_auc) + '.pth')
+                    torch.save(model.state_dict(), 'models/model_local_' + str(epoch) + '_' + str(temp_auc) + '_' + str(int(time.mktime(time.localtime(time.time())))) + '.pth')
 
         # aucmeter.plot()
         #for label in aucmeter.meters:
