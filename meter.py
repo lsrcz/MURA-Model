@@ -18,9 +18,9 @@ class AUCMeter:
 
     def add(self, output, target):
         if torch.is_tensor(output):
-            output = output.to(cpu_device).squeeze().numpy()
+            output = output.detach().to(cpu_device).squeeze().numpy()
         if torch.is_tensor(target):
-            target = target.to(cpu_device).squeeze().numpy()
+            target = target.detach().to(cpu_device).squeeze().numpy()
         self.scores = np.append(self.scores, output)
         self.targets = np.append(self.targets, target)
 
