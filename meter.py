@@ -13,6 +13,7 @@ class AUCMeter:
         self.reset()
 
     def reset(self):
+        self.active = False
         self.scores = torch.DoubleTensor(torch.DoubleStorage()).numpy()
         self.targets = torch.LongTensor(torch.LongStorage()).numpy()
 
@@ -23,6 +24,10 @@ class AUCMeter:
             target = target.detach().to(cpu_device).squeeze().numpy()
         self.scores = np.append(self.scores, output)
         self.targets = np.append(self.targets, target)
+        self.active = True
+
+    def is_active(self):
+        return self.active
 
     def value(self):
         if self.scores.shape[0] == 0:
@@ -98,12 +103,19 @@ class AUCMeterMulti:
 
         for name in self.meters.keys():
             meter = self.meters[name]
-            area, tpr, fpr = meter.value()
-            ax.plot(fpr, tpr, linewidth=1, label=meter.label, color=meter.color, linestyle=meter.linestyle)
-            allstr += (name + ": " + ("%.4f" % area) + "\n")
+            if meter.is_active():
+                area, tpr, fpr = meter.value()
+                ax.plot(fpr, tpr, linewidth=1, label=meter.label, color=meter.color, linestyle=meter.linestyle)
+                allstr += (name + ": " + ("%.4f" % area) + "\n")
         plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
         plt.text(0.5, 0.5, allstr)
         plt.show()
+
+    def print(self):
+        for label in self.meters:
+            if self.meters[label].is_active():
+                auc, _, _ = self.meters[label].value()
+                print(label, auc)
 
 class ConfusionMatrixMeter():
 
@@ -258,6 +270,16 @@ class ConfusionMatrixMeterMulti():
             self.meters[name].add(pred[study_names == name], target[study_names == name])
 
         self.meters['#tot#'].add(pred, target)
+
+    def print(self):
+        print('Acc: {:.4f} F1: {:.4f} Kappa: {:.4f}'.format(
+            self.accuracy(), self.F1(), self.kappa()
+        ))
+        print('{:>13}{:>7}{:>7}{:>7}'.format('Study', 'Acc', 'F1', 'Kappa'))
+        for key in self.names:
+            print('{:>13} {:6.4f} {:6.4f} {:6.4f}'.format(
+                key, self.accuracy(key), self.F1(key), self.kappa(key)
+            ))
 
 def main():
     c = ConfusionMatrixMeterMulti()
