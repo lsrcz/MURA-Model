@@ -153,12 +153,12 @@ def train_local(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
 
             if phase == 'valid_study':
                 scheduler.step(epoch_loss)
-                #temp_auc ,_, _ = aucmeter.meters['valid_study'].value()
-                if confusion.kappa() > best_acc:
+                temp_auc ,_, _ = aucmeter.meters['valid_study'].value()
+                if temp_auc > best_acc:
                     best_idx = epoch
-                    best_acc = confusion.kappa()
+                    best_acc = temp_auc
                     best_model_wts = copy.deepcopy(model.state_dict())
-                    torch.save(model.state_dict(), 'models/model_local_' + str(int(time.mktime(time.localtime(time.time())))) + '.pth')
+                    torch.save(model.state_dict(), 'models/model_local_' + str(epoch) + '_' + str(temp_auc) + '.pth')
 
         # aucmeter.plot()
         #for label in aucmeter.meters:
@@ -180,7 +180,7 @@ def train_local(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
 
 def main():
     dataloaders, dataset_sizes = get_dataloaders(
-        study_name=None,
+        study_name='XR_HUMERUS',
         data_dir='MURA-v1.0',
         batch_size=25,
         batch_eval_ten=15,
