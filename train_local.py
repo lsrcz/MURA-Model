@@ -167,26 +167,27 @@ def train_local(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
 
 def main():
     dataloaders, dataset_sizes = get_dataloaders(
-        study_name='XR_HUMERUS',
+        study_name=None,
         data_dir='MURA-v1.0',
-        batch_size=30,
+        batch_size=25,
         batch_eval_ten=15,
         shuffle=True
     )
 
     print(dataset_sizes)
 
-    model = MURA_Net_AG()
+    model = MURA_Net_AG('densenet161')
     model = model.to(device)
 
-    model.load_global_dict(torch.load('models/model.pth'))
+    model.load_global_dict(torch.load('models/model_densenet161_fixed.pth'))
+    model.load_local_dict(torch.load('models/model_densenet161_fixed.pth'))
 
     # model.load_state_dict(torch.load('models/model_XR_WRIST.pth'))
     optimizer = torch.optim.Adam(model.local_net.parameters(), lr=0.0001)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=1, verbose=True)
 
     model = train_local(model, optimizer, dataloaders, scheduler, dataset_sizes, 500)
-    torch.save(model.state_dict(), 'models/model_local.pth')
+    torch.save(model.state_dict(), 'models/model_local_161_bi.pth')
 
 if __name__ == '__main__':
     main()
