@@ -69,7 +69,8 @@ class MURA_Dataset(Dataset):
             'at': self.at[study_name],
             'dataset_size': self.sizes[study_name],
             'wt1': self.wt1[study_name],
-            'wt0': self.wt0[study_name]
+            'wt0': self.wt0[study_name],
+            'path': imgPath
         }
         if label == 1:
             metadata['wt'] = metadata['wt1']

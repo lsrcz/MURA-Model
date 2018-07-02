@@ -12,11 +12,17 @@ from localize import crop_heat
 
 class MURA_Net(nn.Module):
     def __init__(self, networkName='densenet169'):
-        assert networkName in ['densenet169']
+        assert networkName in ['densenet169','densenet161','densenet201']
         super(MURA_Net, self).__init__()
         if networkName == 'densenet169':
             self.features = torchvision.models.densenet169(pretrained=True).features
             self.classifier = nn.Linear(1664, 1)
+        if networkName == 'densenet161':
+            self.features = torchvision.models.densenet161(pretrained=True).features
+            self.classifier = nn.Linear(2208, 1)
+        if networkName == 'densenet201':
+            self.features = torchvision.models.densenet201(pretrained=True).features
+            self.classifier = nn.Linear(1920, 1)
 
     def forward(self, x):
         features = self.features(x)
@@ -29,11 +35,17 @@ class MURA_Net(nn.Module):
 
 class MURA_Net_Binary(nn.Module):
     def __init__(self, networkName='densenet169'):
-        assert networkName in ['densenet169']
+        assert networkName in ['densenet169', 'densenet161', 'densenet201']
         super(MURA_Net_Binary, self).__init__()
         if networkName == 'densenet169':
             self.features = torchvision.models.densenet169(pretrained=True).features
             self.classifier = nn.Linear(1664, 2)
+        if networkName == 'densenet161':
+            self.features = torchvision.models.densenet161(pretrained=True).features
+            self.classifier = nn.Linear(2208, 2)
+        if networkName == 'densenet201':
+            self.features = torchvision.models.densenet201(pretrained=True).features
+            self.classifier = nn.Linear(1920, 2)
 
     def forward(self, x):
         features = self.features(x)
