@@ -69,7 +69,6 @@ def train_local(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                         outputs = outputs.view(bs, ncrops, -1).mean(1)
 
                     loss = F.binary_cross_entropy(outputs, labels, weight=weights)
-                    running_loss += loss
                     if phase == 'train':
                         loss.backward()
                         optimizer.step()
