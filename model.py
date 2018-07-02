@@ -96,26 +96,29 @@ class MURA_Net_AG(nn.Module):
             return out
 
         if self.networkName == 'densenet161':
-            print(1)
+            '''
             global_features = self.global_net.features(input)
-            print(2)
             global_features = F.relu(global_features, inplace=True)
-            print(3)
             global_features = F.avg_pool2d(global_features, kernel_size=7, stride=1) \
                 .view(self.global_net.features.size[0], -1)
-            print(4)
+            '''
+            global_features = self.global_net.features(input)
+            out = F.relu(global_features, inplace=True)
+            global_features = F.avg_pool2d(out, kernel_size=7, stride=1) \
+                .view(global_features.size(0), -1)
 
-            cams = gcam(self, input)
-            local_input = crop_heat(cams, input).to(device)
+            with torch.set_grad_enabled(True):
+                _, cams = gcam(self.global_net, input)
+                local_input = crop_heat(cams, input).to(device)
 
             local_features = self.local_net.features(local_input)
-            local_features = F.relu(local_features, inplace=True)
-            local_features = F.avg_pool2d(local_features, kernel_size=7, stride=1) \
-                .view(self.local_net.features.size[0], -1)
+            out = F.relu(local_features, inplace=True)
+            local_features = F.avg_pool2d(out, kernel_size=7, stride=1) \
+                .view(local_features.size(0), -1)
 
             out = torch.cat([global_features, local_features], dim=1)
             out = self.classifier(out)
-            out = F.softmax(out)
+            out = F.sigmoid(out)
             return out
 
 

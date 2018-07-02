@@ -106,7 +106,7 @@ def main():
 
     model = MURA_Net()
     model = model.to(device)
-    model.load_state_dict(torch.load('models/model.pth'))
+    model.load_state_dict(torch.load('models/model_densenet161_auc.pth'))
 
     valid(model, dataloaders)
 

@@ -24,7 +24,7 @@ def train_total(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
     for epoch in range(num_epochs):
         aucmeter = AUCMeterMulti()
         aucmeter.add_meter('valid', 'red', '-')
-        aucmeter.add_meter('valid_tencrop', 'green', '-')
+        #aucmeter.add_meter('valid_tencrop', 'green', '-')
         aucmeter.add_meter('valid_study', 'blue', '-')
         confusion = ConfusionMatrixMeterMulti()
         if epoch > best_idx + 10:
@@ -33,7 +33,7 @@ def train_total(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
         print('Epoch {}/{}'.format(epoch + 1, num_epochs))
         print('-' * 10)
 
-        for phase in phases + ['valid_tencrop']:
+        for phase in phases:
             if phase == 'train':
                 model.train(phase=='train')
             else:
@@ -53,13 +53,7 @@ def train_total(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
 
                 optimizer.zero_grad()
                 with torch.set_grad_enabled(phase == 'train'):
-                    if phase == 'valid_tencrop':
-                        bs, ncrops, c, h, w = images.size()
-                        outputs = model(images.view(-1, c, h, w))
-                        outputs = outputs.view(bs, ncrops, -1).mean(1)
-                    else:
-                        print(0)
-                        outputs = model(images)
+                    outputs = model(images)
                     loss = F.binary_cross_entropy(outputs, labels, weight=weights)
                     running_loss += loss
                     if phase == 'train':
@@ -167,7 +161,7 @@ def main():
     dataloaders, dataset_sizes = get_dataloaders(
         study_name='XR_HUMERUS',
         data_dir='MURA-v1.0',
-        batch_size=30,
+        batch_size=20,
         batch_eval_ten=15,
         shuffle=True
     )
