@@ -56,14 +56,18 @@ class MURA_Net_Binary(nn.Module):
         return out
 
 class MURA_Net_AG(nn.Module):
-    def __init__(self, networkName='densenet169'):
-        assert networkName in ['densenet169']
+    def __init__(self, networkName='densenet161'):
+        assert networkName in ['densenet169','densenet161']
         self.networkName = networkName
         super(MURA_Net_AG, self).__init__()
         if networkName == 'densenet169':
             self.global_net = MURA_Net(networkName)#torchvision.models.densenet169(pretrained=True)
             self.local_net = MURA_Net(networkName)#torchvision.models.densenet169(pretrained=True)
             self.classifier = nn.Linear(1664 * 2, 1)
+        if networkName == 'densenet161':
+            self.global_net = MURA_Net(networkName)  # torchvision.models.densenet169(pretrained=True)
+            self.local_net = MURA_Net(networkName)  # torchvision.models.densenet169(pretrained=True)
+            self.classifier = nn.Linear(2208 * 2, 1)
 
     def load_global_dict(self, global_dict):
         self.global_net.load_state_dict(global_dict)
@@ -76,7 +80,7 @@ class MURA_Net_AG(nn.Module):
             global_features = self.global_net.features(input)
             global_features = F.relu(global_features, inplace=True)
             global_features = F.avg_pool2d(global_features, kernel_size=7, stride=1)\
-                .view(self.global_net.features.size(0), -1)
+                .view(self.global_net.features.size[0], -1)
 
             cams = gcam(self, input)
             local_input = crop_heat(cams, input).to(device)
@@ -84,7 +88,30 @@ class MURA_Net_AG(nn.Module):
             local_features = self.local_net.features(local_input)
             local_features = F.relu(local_features, inplace=True)
             local_features = F.avg_pool2d(local_features, kernel_size=7, stride=1) \
-                .view(self.local_net.features.size(0), -1)
+                .view(self.local_net.features.size[0], -1)
+
+            out = torch.cat([global_features, local_features], dim=1)
+            out = self.classifier(out)
+            out = F.softmax(out)
+            return out
+
+        if self.networkName == 'densenet161':
+            print(1)
+            global_features = self.global_net.features(input)
+            print(2)
+            global_features = F.relu(global_features, inplace=True)
+            print(3)
+            global_features = F.avg_pool2d(global_features, kernel_size=7, stride=1) \
+                .view(self.global_net.features.size[0], -1)
+            print(4)
+
+            cams = gcam(self, input)
+            local_input = crop_heat(cams, input).to(device)
+
+            local_features = self.local_net.features(local_input)
+            local_features = F.relu(local_features, inplace=True)
+            local_features = F.avg_pool2d(local_features, kernel_size=7, stride=1) \
+                .view(self.local_net.features.size[0], -1)
 
             out = torch.cat([global_features, local_features], dim=1)
             out = self.classifier(out)
