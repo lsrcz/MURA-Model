@@ -11,7 +11,7 @@ from localize import crop_heat
 
 
 class MURA_Net(nn.Module):
-    def __init__(self, networkName='densenet169'):
+    def __init__(self, networkName='densenet161'):
         assert networkName in ['densenet169','densenet161','densenet201']
         super(MURA_Net, self).__init__()
         if networkName == 'densenet169':
@@ -34,7 +34,7 @@ class MURA_Net(nn.Module):
 
 
 class MURA_Net_Binary(nn.Module):
-    def __init__(self, networkName='densenet169'):
+    def __init__(self, networkName='densenet161'):
         assert networkName in ['densenet169', 'densenet161', 'densenet201']
         super(MURA_Net_Binary, self).__init__()
         if networkName == 'densenet169':
