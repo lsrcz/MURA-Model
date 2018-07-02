@@ -9,7 +9,6 @@ from common import device
 import numpy as np
 
 # hook the feature extractor
-from model import MURA_Net
 
 features_blobs = []
 def hook_feature(module, input, output):
@@ -91,6 +90,7 @@ _preprocess = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
+'''
 def main():
     model = MURA_Net()
     model = model.to(device)
@@ -99,7 +99,7 @@ def main():
     paths = ['./MURA-v1.0/valid/XR_SHOULDER/patient11791/study1_positive/image1.png',
              './MURA-v1.0/valid/XR_SHOULDER/patient11791/study1_positive/image2.png',
              './MURA-v1.0/valid/XR_SHOULDER/patient11791/study1_positive/image3.png',
-             './MURA-v1.0/valid/XR_SHOULDER/patient11791/study1_positive/image4.png'] * 15
+             './MURA-v1.0/valid/XR_SHOULDER/patient11791/study1_positive/image4.png'][0:1]
     img_pil = list(map(pil_loader, paths))
 
     img_tensor = list(map(_preprocess, img_pil))
@@ -110,3 +110,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+'''
