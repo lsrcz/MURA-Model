@@ -4,12 +4,9 @@ import cv2
 
 import numpy as np
 from PIL import Image
-from torchvision.datasets.folder import pil_loader
-from torchvision.transforms import transforms
-import matplotlib.pyplot as plt
 
-from common import device
-from grad_cam import grad_cam
+from transform import normalize, denormalize
+
 
 def getMaxConnectedComponents(cam, width, height, threshold=0.7):
     cam = cv2.resize(cam, (width, height))
@@ -35,6 +32,9 @@ def add_heatmap(cam, img, need_transpose_color=True):
         result = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
     return result
 
+def add_heatmap_ts(cam, tsimg, need_transpose_color=True):
+    return add_heatmap(cam, denormalize(tsimg.cpu().detach()), need_transpose_color)
+
 def add_boundedbox(cam, img, threshold=0.7, need_transpose_color=False):
     img = np.array(img)
     height, width, _ = img.shape
@@ -48,31 +48,22 @@ def add_boundedbox(cam, img, threshold=0.7, need_transpose_color=False):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return img
 
-_normalize = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485,0.456,0.406],std=[0.229,0.224,0.225])
-])
-
-_denormalize = transforms.Compose([
-    transforms.Normalize(mean=[0.,0.,0.],std=[1/0.229,1/0.224,1/0.225]),
-    transforms.Normalize(mean=[-0.485,-0.456,-0.406],std=[1.,1.,1.]),
-    transforms.ToPILImage()
-])
+def add_boundedbox_ts(cam, tsimg, threshold=0.7, need_transpose_color=True):
+    return add_boundedbox(cam, denormalize(tsimg.cpu().detach()), threshold, need_transpose_color)
 
 # don't know if it's correct
-def crop_heat(cams, imgs, threshold=0.7):
-
-    bs = imgs.shape[0]
+def crop_heat(cams, tsimgs, threshold=0.7):
+    bs = tsimgs.shape[0]
     print(bs)
     arr = []
     for i in range(bs):
-        img = np.array(_denormalize(imgs[i].detach().cpu()))
+        img = np.array(denormalize(tsimgs[i].detach().cpu()))
         height, width, _ = img.shape
         left, top, width, height, area = getMaxConnectedComponents(cams[i], height, width, threshold)
         img = img[top:top+height,left:left+width+1]
         img = cv2.resize(img, (224,224))
         img = Image.fromarray(img)
-        arr.append(_normalize(img))
+        arr.append(normalize(img))
     return torch.stack(arr)
 
 '''
