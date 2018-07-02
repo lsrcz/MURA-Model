@@ -6,7 +6,7 @@ import torchvision
 from torchvision import transforms, models
 
 from common import device
-from grad_cam import grad_cam_batch
+from gcam import gcam
 from localize import crop_heat
 
 
@@ -78,7 +78,7 @@ class MURA_Net_AG(nn.Module):
             global_features = F.avg_pool2d(global_features, kernel_size=7, stride=1)\
                 .view(self.global_net.features.size(0), -1)
 
-            cams = grad_cam_batch(self, input)
+            cams = gcam(self, input)
             local_input = crop_heat(cams, input).to(device)
 
             local_features = self.local_net.features(local_input)
