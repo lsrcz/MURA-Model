@@ -10,11 +10,10 @@ import matplotlib.pyplot as plt
 
 from common import device
 from grad_cam import grad_cam
-from model import MURA_Net
 
-def getMaxConnectedComponents(cam, width, height):
+def getMaxConnectedComponents(cam, width, height, threshold=0.7):
     cam = cv2.resize(cam, (width, height))
-    _, bicam = cv2.threshold(cam, 0.7 * 255, 255, cv2.THRESH_BINARY)
+    _, bicam = cv2.threshold(cam, threshold * 255, 255, cv2.THRESH_BINARY)
     _, _, stats, _ = cv2.connectedComponentsWithStats(bicam)
     maxPos = np.argmax(stats[:, 4])
     stats[maxPos,4] = 0
@@ -41,10 +40,10 @@ def add_boundedbox(cam, img, threshold=0.7, need_transpose_color=False):
     height, width, _ = img.shape
     left, top, width, height, area = getMaxConnectedComponents(cam, width, height)
 
-    img = cv2.line(img, (left, top), (left + width, top), (0,0,255),5)
-    img = cv2.line(img, (left, top), (left, top + height), (0,0,255),5)
-    img = cv2.line(img, (left, top + height), (left + width, top + height), (0,0,255),5)
-    img = cv2.line(img, (left + width, top), (left + width, top + height), (0,0,255),5)
+    img = cv2.line(img, (left, top), (left + width, top), (0,0,255),2)
+    img = cv2.line(img, (left, top), (left, top + height), (0,0,255),2)
+    img = cv2.line(img, (left, top + height), (left + width, top + height), (0,0,255),2)
+    img = cv2.line(img, (left + width, top), (left + width, top + height), (0,0,255),2)
     if need_transpose_color:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return img
@@ -76,6 +75,7 @@ def crop_heat(cams, imgs, threshold=0.7):
         arr.append(_normalize(img))
     return torch.stack(arr)
 
+'''
 def main():
     model = MURA_Net()
     model = model.to(device)
@@ -116,4 +116,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-
+'''
