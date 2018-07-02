@@ -5,7 +5,6 @@ import torch.utils.model_zoo as model_zoo
 import torchvision
 from torchvision import transforms, models
 
-
 class MURA_Net(nn.Module):
     def __init__(self, networkName='densenet169'):
         assert networkName in ['densenet169','densenet161','densenet201']
@@ -50,6 +49,21 @@ class MURA_Net_Binary(nn.Module):
         out = self.classifier(out)
         out = F.softmax(out,dim=1)
         return out
+
+class MURA_Net_AG(nn.Module):
+    def __init__(self, networkName='densenet169'):
+        assert networkName in ['densenet169']
+        self.networkName = networkName
+        super(MURA_Net_AG, self).__init__()
+        if networkName == 'densenet169':
+            self.global_net = torchvision.models.densenet169(pretrained=True)
+            self.local_net = torchvision.models.densenet169(pretrained=True)
+            self.classifier = nn.Linear(1664 * 2, 1)
+
+    def forward(self, x):
+        global_features = self.global_net.features(x)
+        # TODO: finish the forward
+
 
 
 def main():
