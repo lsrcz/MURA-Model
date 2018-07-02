@@ -54,7 +54,6 @@ def add_boundedbox_ts(cam, tsimg, threshold=0.7, need_transpose_color=True):
 # don't know if it's correct
 def crop_heat(cams, tsimgs, threshold=0.7):
     bs = tsimgs.shape[0]
-    print(bs)
     arr = []
     for i in range(bs):
         img = np.array(denormalize(tsimgs[i].detach().cpu()))
