@@ -10,25 +10,13 @@ import numpy as np
 
 # hook the feature extractor
 
-features_blobs = []
-def hook_feature(module, input, output):
-    features_blobs.append(output.detach())
-
-grad_blobs = []
-def hook_grad(module, grad_in, grad_out):
-    grad_blobs.append(grad_out[0].detach())
-
 def _l2_normalize(grads):
-    print(grads.shape)
     l2_norm = torch.sqrt(torch.mean(torch.mean(
         torch.mean(torch.pow(grads, 2), dim=3), dim=2), dim=1)) + 1e-5
-    print(l2_norm)
     return grads / l2_norm.reshape(grads.shape[0], 1, 1, 1)
 
 def _normalize(grads):
-    print(grads.shape)
     l2_norm = torch.sqrt(torch.mean(torch.pow(grads, 2))) + 1e-5
-    print(l2_norm)
     return grads / l2_norm
 
 def _one_hot(bs):
@@ -46,6 +34,16 @@ def _max_inside(gcam):
     return m
 
 def gcam(model, img, name="features.denseblock4", upsample_size=(224,224)):
+    features_blobs = [None]
+
+    def hook_feature(module, input, output):
+        features_blobs[0] = output.detach()
+
+    grad_blobs = [None]
+
+    def hook_grad(module, grad_in, grad_out):
+        grad_blobs[0] = grad_out[0].detach()
+
     model.eval()
     namelst = name.split('.')
     module = model
@@ -57,29 +55,29 @@ def gcam(model, img, name="features.denseblock4", upsample_size=(224,224)):
     model.zero_grad()
 
     preds = model(img)
-    fmaps = features_blobs[-1]
+    fmaps = features_blobs[0]
     probs = F.sigmoid(preds)
 
     # prob = preds
     one_hot = _one_hot(probs.shape[0])
-    preds.backward(gradient=one_hot, retain_graph=True)
+    preds.backward(gradient=one_hot, retain_graph=False)
 
-
-    grads = grad_blobs[-1]
+    grads = grad_blobs[0]
     grads = _l2_normalize(grads)
     weights = F.adaptive_avg_pool2d(grads ,1)
     gcam = (fmaps * weights).sum(dim=1)
     gcam = torch.clamp(gcam, min=0.)
 
-    print(gcam.shape)
-    print(_min_inside(gcam).shape)
     gcam -= _min_inside(gcam).reshape(-1, 1, 1)
     gcam /= _max_inside(gcam).reshape(-1, 1, 1)
 
-
     output = (gcam.detach().cpu().numpy() * 255).astype(np.uint8)
     output = output.transpose(1 ,2 ,0)
-    output = cv2.resize(output, (224, 224)).transpose(2 ,0 ,1)
+    output = cv2.resize(output, (224, 224))
+    if output.ndim == 2:
+        output = output.reshape(1, 224, 224)
+    else:
+        output = output.transpose(2 ,0 ,1)
     return preds, output
 
 _preprocess = transforms.Compose([
