@@ -81,7 +81,7 @@ def gcam(model, img, name="features.denseblock4", upsample_size=(224,224)):
     output = (gcam.detach().cpu().numpy() * 255).astype(np.uint8)
     output = output.transpose(1 ,2 ,0)
     output = cv2.resize(output, (224, 224)).transpose(2 ,0 ,1)
-    return output
+    return preds, output
 
 _preprocess = transforms.Compose([
     transforms.Resize((320, 320)),
