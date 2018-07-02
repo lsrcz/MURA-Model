@@ -85,12 +85,14 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
 
             costs[phase].append(epoch_loss)
             accs[phase].append(epoch_acc)
+            '''
             if phase == 'valid_tencrop':
                 scheduler.step(epoch_loss)
                 if epoch_acc > best_acc:
                     best_idx = epoch
                     best_acc = epoch_acc
                     best_model_wts = copy.deepcopy(model.state_dict())
+            '''
 
         for phase in ['valid_study']:
             model.eval()
@@ -127,6 +129,23 @@ def train_model(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                     key, confusion.accuracy(key), confusion.F1(key), confusion.kappa(key)
                 ))
             accs[phase].append(confusion.accuracy())
+            '''
+                        if phase == 'valid_study':
+                scheduler.step(epoch_loss)
+                temp_auc ,_, _ = aucmeter.meters['valid_study'].value()
+                if temp_auc > best_acc:
+                    best_idx = epoch
+                    best_acc = temp_auc
+                    best_model_wts = copy.deepcopy(model.state_dict())
+            '''
+            if phase == 'valid_study':
+                scheduler.step(epoch_loss)
+                #temp_auc ,_, _ = aucmeter.meters['valid_study'].value()
+                if confusion.kappa() > best_acc:
+                    best_idx = epoch
+                    best_acc = confusion.kappa()
+                    best_model_wts = copy.deepcopy(model.state_dict())
+
         # aucmeter.plot()
         for label in aucmeter.meters:
             auc, _, _ = aucmeter.meters[label].value()
