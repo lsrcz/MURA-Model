@@ -97,8 +97,6 @@ def findTOP5pic(model, dataloaders, path):
         plt.imshow(resultimg)
         plt.show()
 
-
-
 def main():
     dataloaders, dataset_sizes = get_dataloaders(
         study_name=None,
