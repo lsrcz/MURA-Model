@@ -8,7 +8,7 @@ from torchvision import transforms, models
 
 from common import device
 from gcam import gcam
-from localize import crop_heat
+from heatmap import crop_heat
 
 
 class MURA_Net(nn.Module):

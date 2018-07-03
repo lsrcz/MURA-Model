@@ -11,7 +11,7 @@ import cv2
 from PIL import Image
 import matplotlib.pyplot as plt
 from gcam import gcam
-from localize import add_heatmap_ts
+from heatmap import add_heatmap_ts
 
 similarity = {}
 

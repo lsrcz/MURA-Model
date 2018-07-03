@@ -1,43 +1,114 @@
 import torch
-from torchvision.datasets.folder import pil_loader
-from localize import tsimg2img, crop_heat, add_boundedbox, add_heatmap_ts
-from common import device
-from optparse import OptionParser
-from model import get_pretrained_model
+
+import cv2
+
+import numpy as np
 from PIL import Image
-from gcam import _preprocess, gcam
+
+from transform import normalize, denormalize
 
 
+def getMaxConnectedComponents(cam, width, height, threshold=0.65):
+
+    cam = cv2.resize(cam, (width, height))
+    _, bicam = cv2.threshold(cam, threshold * 255, 255, cv2.THRESH_BINARY)
+    _, _, stats, _ = cv2.connectedComponentsWithStats(bicam)
+    maxPos = np.argmax(stats[:, 4])
+    stats[maxPos,4] = 0
+    maxPos = np.argmax(stats[:, 4])
+    left = stats[maxPos, 0]
+    top = stats[maxPos, 1]
+    width = stats[maxPos, 2]
+    height = stats[maxPos, 3]
+    area = stats[maxPos, 4]
+    return left, top, width, height, area
+
+def add_heatmap(cam, img, need_transpose_color=True):
+    img = np.array(img)
+    height, width, _ = img.shape
+    cam = cv2.resize(cam, (width, height))
+    heatmap = cv2.applyColorMap(cam, cv2.COLORMAP_JET)
+    result = (heatmap * 0.2 + img * 0.75).astype(np.uint8)
+    if need_transpose_color:
+        result = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
+    return result
+
+def add_heatmap_ts(cam, tsimg, need_transpose_color=True):
+    return add_heatmap(cam, denormalize(tsimg.cpu().detach()), need_transpose_color)
+
+def add_boundedbox(cam, img, threshold=0.65, need_transpose_color=False):
+    img = np.array(img)
+    height, width, _ = img.shape
+    left, top, width, height, area = getMaxConnectedComponents(cam, width, height, threshold)
+
+    img = cv2.line(img, (left, top), (left + width, top), (0,0,255),2)
+    img = cv2.line(img, (left, top), (left, top + height), (0,0,255),2)
+    img = cv2.line(img, (left, top + height), (left + width, top + height), (0,0,255),2)
+    img = cv2.line(img, (left + width, top), (left + width, top + height), (0,0,255),2)
+    if need_transpose_color:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    return img
+
+def add_boundedbox_ts(cam, tsimg, threshold=0.65, need_transpose_color=True):
+    return add_boundedbox(cam, denormalize(tsimg.cpu().detach()),
+                          threshold=threshold, need_transpose_color=need_transpose_color)
+
+# don't know if it's correct
+def crop_heat(cams, tsimgs, threshold=0.65):
+    bs = tsimgs.shape[0]
+    arr = []
+    for i in range(bs):
+        img = np.array(denormalize(tsimgs[i].detach().cpu()))
+        height, width, _ = img.shape
+        left, top, width, height, area = getMaxConnectedComponents(cams[i], height, width, threshold)
+        img = img[top:top+height,left:left+width+1]
+        img = cv2.resize(img, (224,224))
+        img = Image.fromarray(img)
+        arr.append(normalize(img))
+    return torch.stack(arr)
+
+def tsimg2img(tsimg):
+    return denormalize(tsimg.cpu().detach())
+
+'''
 def main():
-    usage = "usage: %prog [option] img_path"
-    parser = OptionParser(usage)
+    model = MURA_Net()
+    model = model.to(device)
+    model.load_state_dict(torch.load('./models/model.pth'))
 
-    options, args = parser.parse_args()
+    preprocess = transforms.Compose([
+        transforms.Resize((320, 320)),
+        transforms.CenterCrop(224),
+        # transforms.Resize((224,224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
 
-    print('options', options)
-    print('args', args)
+    path = './MURA-v1.0/valid/XR_WRIST/patient11285/study1_positive/image1.png'
 
-    if len(args) != 1:
-        parser.error('incorrect number of arguments')
+    img_pil = pil_loader(path)
+    img_tensor = preprocess(img_pil)
 
-    path = [args[0]]
-    model = get_pretrained_model('densenet161').to(device)
+    img_variable = torch.stack([img_tensor]).to(device)
 
-    img_pil = list(map(pil_loader, path))
-    img_tensor = list(map(_preprocess, img_pil))
-    img_variable = torch.stack(img_tensor).to(device)
-    p, x = gcam(model, img_variable)
-    t = crop_heat(x, img_variable, threshold=0.63)
+    x = grad_cam(model, img_variable)
 
-    print('Saving images at current directory...')
-    print('orig.png ...')
-    img_pil[0].save('./orig.png')
-    print('boundbox.png ...')
-    Image.fromarray(
-        add_boundedbox(x[0], add_heatmap_ts(x[0], img_variable[0], need_transpose_color=False), threshold=0.63,
-                       need_transpose_color=True)).save('./boundbox.png')
-    print('croped.png ...')
-    tsimg2img(t[0]).save('./croped.png')
+    t = crop_heat([x], img_variable)
+    plt.imshow(_denormalize(img_variable[0].cpu().detach()))
+    plt.show()
+    plt.imshow(_denormalize(t[0]))
+    plt.show()
+
+    img = _denormalize(img_variable[0].cpu().detach())
+    img = add_boundedbox(x, img)
+    print(img)
+    plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    plt.show()
+
+    plt.imshow(add_heatmap(x, img))
+    plt.show()
+
 
 if __name__ == '__main__':
     main()
+'''
