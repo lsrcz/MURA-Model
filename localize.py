@@ -66,6 +66,9 @@ def crop_heat(cams, tsimgs, threshold=0.7):
         arr.append(normalize(img))
     return torch.stack(arr)
 
+def tsimg2img(tsimg):
+    return denormalize(tsimg.cpu().detach())
+
 '''
 def main():
     model = MURA_Net()

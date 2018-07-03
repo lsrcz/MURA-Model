@@ -141,15 +141,26 @@ class MURA_Study_Dataset(Dataset):
         metadata = {
             'study_name': study_name,
             'patient/study': splitedPath[3] + '/' + splitedPath[4],
-            'total_img_num': -1,
-            'nt': -1,
-            'at': -1,
+            'total_img_num': 0,
+            'nt': 0,
+            'at': 0,
             'dataset_size': self.sizes[study_name],
-            'wt1': -1,
-            'wt0': -1
+            'wt1': 0,
+            'wt0': 0,
+            'wt': float(0.5)
         }
-
-        sample = {'images': {imglabel: torch.stack([img[imglabel] for img in images]) for imglabel in ['orig','norm']}, 'label': label, 'metadata': metadata}
+        if images[0]['norm'].ndimension() == 3:
+            sample = {'image': {
+                imglabel: torch.stack([img[imglabel] for img in images]) for imglabel in ['orig','norm']},
+                'label': label,
+                'metadata': metadata
+            }
+        else:
+            sample = {'image': {
+                imglabel: torch.cat([img[imglabel] for img in images]) for imglabel in ['orig','norm']},
+                'label': label,
+                'metadata': metadata
+            }
         return sample
 
 
@@ -207,6 +218,10 @@ def get_dataloaders(study_name=None, data_dir='MURA-v1.0', batch_size=8, batch_e
     image_study_datasets = MURA_Study_Dataset('valid', study_name, data_dir, data_transforms['valid'])
     dataloader['valid_study'] = DataLoader(image_study_datasets, batch_size=1, shuffle=False, num_workers=32)
     dataset_sizes['valid_study'] = len(image_study_datasets)
+
+    image_study_datasets_ten = MURA_Study_Dataset('valid', study_name, data_dir, data_transforms['valid_tencrop'])
+    dataloader['valid_study_tencrop'] = DataLoader(image_study_datasets, batch_size=1, shuffle=False, num_workers=32)
+    dataset_sizes['valid_study_tencrop'] = len(image_study_datasets)
 
     return dataloader, dataset_sizes
 
