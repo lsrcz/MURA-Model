@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
 import torchvision
+from common import *
 from torchvision import transforms, models
 
 from common import device
@@ -12,7 +13,7 @@ from localize import crop_heat
 
 class MURA_Net(nn.Module):
     def __init__(self, networkName='densenet161'):
-        assert networkName in ['densenet169','densenet161','densenet201','resnet50','vgg19']
+        assert networkName in ['densenet169','densenet161','densenet201','resnet50','vgg19','resnet152']
         self.networkName = networkName
         super(MURA_Net, self).__init__()
         if networkName == 'densenet169':
@@ -27,6 +28,9 @@ class MURA_Net(nn.Module):
         if networkName == 'resnet50':
             self.resnet = torchvision.models.resnet50(pretrained=True)
             self.resnet.fc = nn.Linear(2048,1)
+        if networkName == 'resnet152':
+            self.resnet = torchvision.models.resnet152(pretrained=True)
+            self.resnet.fc = nn.Linear(2048, 1)
         if networkName == 'vgg19':
             self.features = torchvision.models.vgg19_bn(pretrained=True).features
             self.classifier = nn.Sequential(
@@ -49,7 +53,7 @@ class MURA_Net(nn.Module):
             out = self.features(x)
             out = out.view(out.size(0), -1)
             out = self.classifier(out)
-        if self.networkName == 'resnet50':
+        if self.networkName in ['resnet50', 'resnet152']:
             out = self.resnet(x)
         out = F.sigmoid(out)
         return out
@@ -143,8 +147,14 @@ class MURA_Net_AG(nn.Module):
             out = F.sigmoid(out)
             return out
 
-
-
+def get_pretrained_model(model_name):
+    assert model_name in model_names
+    if model_name == 'agnet':
+        model = MURA_Net_AG('densenet161')
+    else:
+        model = MURA_Net(model_name)
+    model.load_state_dict(model_pos[model_name])
+    return model
 
 def main():
     x = MURA_Net()
