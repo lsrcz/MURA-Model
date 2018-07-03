@@ -32,6 +32,7 @@ def main():
     print(p)
     t = crop_heat(x, img_variable, threshold=0.63)
 
+    print('Saving image at current directary...')
     img_pil[0].save('./orig.png')
     Image.fromarray(
         add_boundedbox(x[0], add_heatmap_ts(x[0], img_variable[0], need_transpose_color=False), threshold=0.63,
