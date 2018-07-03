@@ -123,23 +123,15 @@ def train_total(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                     key, confusion.accuracy(key), confusion.F1(key), confusion.kappa(key)
                 ))
             accs[phase].append(confusion.accuracy())
-            '''
-                        if phase == 'valid_study':
+
+            if phase == 'valid_study':
                 scheduler.step(epoch_loss)
                 temp_auc ,_, _ = aucmeter.meters['valid_study'].value()
                 if temp_auc > best_acc:
                     best_idx = epoch
                     best_acc = temp_auc
                     best_model_wts = copy.deepcopy(model.state_dict())
-            '''
-            if phase == 'valid_study':
-                scheduler.step(epoch_loss)
-                #temp_auc ,_, _ = aucmeter.meters['valid_study'].value()
-                if confusion.kappa() > best_acc:
-                    best_idx = epoch
-                    best_acc = confusion.kappa()
-                    best_model_wts = copy.deepcopy(model.state_dict())
-
+                    torch.save(model.state_dict(), 'models/model_total_' + str(epoch) + '_' + str(temp_auc) + '_' + str(int(time.mktime(time.localtime(time.time())))) + '.pth')
         # aucmeter.plot()
         for label in aucmeter.meters:
             auc, _, _ = aucmeter.meters[label].value()
@@ -159,7 +151,7 @@ def train_total(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
 
 def main():
     dataloaders, dataset_sizes = get_dataloaders(
-        study_name='XR_HUMERUS',
+        study_name=None,
         data_dir='MURA-v1.0',
         batch_size=20,
         batch_eval_ten=15,
@@ -171,10 +163,10 @@ def main():
     model = MURA_Net_AG('densenet161')
     model = model.to(device)
 
-    model.load_global_dict(torch.load('models/model_densenet161_auc.pth'))
-    model.load_global_dict(torch.load('models/model_densenet161_auc.pth'))
+    #model.load_global_dict(torch.load('models/model_densenet161_auc.pth'))
+    #model.load_global_dict(torch.load('models/model_densenet161_auc.pth'))
 
-    # model.load_state_dict(torch.load('models/model_XR_WRIST.pth'))
+    model.load_state_dict(torch.load('models/model_total_2_0.9113079154854713_1530563526.pth'))
     optimizer = torch.optim.Adam(model.classifier.parameters(), lr=0.0001)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=1, verbose=True)
 

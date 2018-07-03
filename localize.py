@@ -9,6 +9,7 @@ from transform import normalize, denormalize
 
 
 def getMaxConnectedComponents(cam, width, height, threshold=0.7):
+
     cam = cv2.resize(cam, (width, height))
     _, bicam = cv2.threshold(cam, threshold * 255, 255, cv2.THRESH_BINARY)
     _, _, stats, _ = cv2.connectedComponentsWithStats(bicam)

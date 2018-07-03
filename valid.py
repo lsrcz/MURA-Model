@@ -6,7 +6,7 @@ from tqdm import tqdm
 import torch.nn.functional as F
 from meter import AUCMeterMulti, ConfusionMatrixMeterMulti
 from dataset import get_dataloaders
-from model import MURA_Net, MURA_Net_Binary
+from model import MURA_Net, MURA_Net_Binary, MURA_Net_AG
 from train import train_model
 import os
 
@@ -99,14 +99,18 @@ def main():
     dataloaders, dataset_sizes = get_dataloaders(
         study_name=None,
         data_dir='MURA-v1.0',
-        batch_size=50,
+        batch_size=20,
         batch_eval_ten=15,
         shuffle=True
     )
-
-    model = MURA_Net()
+    '''
+    model = MURA_Net('densenet161')
     model = model.to(device)
     model.load_state_dict(torch.load('models/model_densenet161_auc.pth'))
+    '''
+    model = MURA_Net_AG('densenet161')
+    model = model.to(device)
+    model.load_state_dict(torch.load('models/model_total_2_0.9113079154854713_1530563526.pth'))
 
     valid(model, dataloaders)
 

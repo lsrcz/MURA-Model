@@ -137,6 +137,7 @@ def train_local(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                 with torch.no_grad():
                     outputs = model.local_net(newimgs)
                     outputs = outputs.view(bs,ncrops,-1).mean(1)
+                    aucmeter[phase].add(outputs, labels)
 
                 preds = (outputs > 0.5).type(torch.LongTensor).reshape(-1)
                 confusion.add(preds, labels, study_name)
@@ -158,7 +159,7 @@ def train_local(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
                     best_idx = epoch
                     best_acc = temp_auc
                     best_model_wts = copy.deepcopy(model.state_dict())
-                    torch.save(model.state_dict(), 'models/model_local_' + str(epoch) + '_' + str(temp_auc) + '_' + str(int(time.mktime(time.localtime(time.time())))) + '.pth')
+                    torch.save(model.state_dict(), 'models/model_local169_' + str(epoch) + '_' + str(temp_auc) + '_' + str(int(time.mktime(time.localtime(time.time())))) + '.pth')
 
         # aucmeter.plot()
         #for label in aucmeter.meters:
@@ -180,7 +181,7 @@ def train_local(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
 
 def main():
     dataloaders, dataset_sizes = get_dataloaders(
-        study_name='XR_HUMERUS',
+        study_name = None,
         data_dir='MURA-v1.0',
         batch_size=25,
         batch_eval_ten=15,
@@ -188,19 +189,18 @@ def main():
     )
 
     print(dataset_sizes)
-
-    model = MURA_Net_AG('densenet161')
+    model = MURA_Net_AG('densenet169')
     model = model.to(device)
 
-    model.load_global_dict(torch.load('models/model_densenet161_fixed.pth'))
-    model.load_local_dict(torch.load('models/model_densenet161_fixed.pth'))
+    model.load_global_dict(torch.load('models/model.pth'))
+    model.load_local_dict(torch.load('models/model.pth'))
 
     # model.load_state_dict(torch.load('models/model_XR_WRIST.pth'))
     optimizer = torch.optim.Adam(model.local_net.parameters(), lr=0.0001)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=1, verbose=True)
 
     model = train_local(model, optimizer, dataloaders, scheduler, dataset_sizes, 500)
-    torch.save(model.state_dict(), 'models/model_local_161_bi.pth')
+    torch.save(model.state_dict(), 'models/model_local_169_bi.pth')
 
 if __name__ == '__main__':
     main()
