@@ -1,80 +1,42 @@
-import io
-import requests
-from model import MURA_Net
-from common import *
-from PIL import Image
-from torchvision import models, transforms
-from torchvision.datasets.folder import pil_loader
-from torch.nn import functional as F
 import torch
-import numpy as np
-import cv2
-import matplotlib.pyplot as plt
-# networks such as googlenet, resnet, densenet already use global average pooling at the end, so CAM could be used directly.
-net = MURA_Net()
-net = net.to(device)
-net.load_state_dict(torch.load('./models/model.pth'))
-finalconv_name = 'features'
-
-net.eval()
-
-# hook the feature extractor
-features_blobs = []
-def hook_feature(module, input, output):
-    features_blobs.append(output.data.cpu().numpy())
-
-net._modules.get(finalconv_name).register_forward_hook(hook_feature)
-
-# get the softmax weight
-params = list(net.parameters())
-weight_softmax = np.squeeze(params[-2].data.cpu().numpy())
-#print(np.shape(weight_softmax))
-def returnCAM(feature_conv, weight_softmax):
-    # generate the class activation maps upsample to 256x256
-    size_upsample = (320, 320)
-    bz, nc, h, w = feature_conv.shape
-    print(bz,nc,h,w)
-    print(np.shape(weight_softmax))
-    output_cam = []
-    cam = weight_softmax.dot(feature_conv.reshape((nc, h*w)))
-    cam = cam.reshape(h, w)
-    cam = cam - np.min(cam)
-    cam_img = cam / np.max(cam)
-    cam_img = np.uint8(255 * cam_img)
-    print(cam_img)
-    output_cam.append(cv2.resize(cam_img, size_upsample))
-    return output_cam
+from torchvision.datasets.folder import pil_loader
+from localize import tsimg2img, crop_heat, add_boundedbox, add_heatmap_ts
+from common import device
+from optparse import OptionParser
+from model import get_pretrained_model
+from PIL import Image
+from gcam import _preprocess, gcam
 
 
-preprocess = transforms.Compose([
-            transforms.Resize((320, 320)),
-            transforms.CenterCrop(224),
-            #transforms.Resize((224,224)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
+def main():
+    usage = "usage: %prog [option] img_path"
+    parser = OptionParser(usage)
+    parser.add_option('-m', '--model', help='choose the model to generate.one of [\'densenet169\',\'densenet161\',\'resnet50\',\'vgg19\',\'agcnn\']', action='store', type='string', default='densenet161',
+                      dest='model')
 
-img_pil = pil_loader('./MURA-v1.0/valid/XR_FOREARM/patient11470/study1_positive/image1.png')
+    options, args = parser.parse_args()
 
-img_tensor = preprocess(img_pil)
-img_variable = img_tensor.unsqueeze(0).to(device)
-outputs = net(img_variable)
-preds = (outputs > 0.5).type(torch.LongTensor).numpy()[0]
+    print('options', options)
+    print('args', args)
 
-# generate class activation mapping for the top1 prediction
-CAMs = returnCAM(features_blobs[0], weight_softmax)
+    if len(args) != 1:
+        parser.error('incorrect number of arguments')
 
+    path = [args[0]]
+    model = get_pretrained_model(options.model).to(device)
 
-# render the CAM and output
-print('output CAM.jpg for the top1 prediction: %d'%preds)
-img = cv2.imread('./MURA-v1.0/valid/XR_FOREARM/patient11470/study1_positive/image1.png')
-height, width, _ = img.shape
-heatmap = cv2.applyColorMap(cv2.resize(CAMs[0],(width, height)), cv2.COLORMAP_JET)
-result = (heatmap * 0.3 + img * 0.5)
-#resultimg = Image.fromarray(cv2.cvtColor(result,cv2.COLOR_BGR2RGB))
-#plt.figure(figsize=(12,9),dpi=180)
-#plt.imshow(resultimg)
-#plt.show()
-cv2.imwrite('CAM.jpg', result)
-img = Image.open('CAM.jpg')
-img.show()
+    img_pil = list(map(pil_loader, path))
+    img_tensor = list(map(_preprocess, img_pil))
+    img_variable = torch.stack(img_tensor).to(device)
+    p, x = gcam(model, img_variable)
+    print(p)
+    t = crop_heat(x, img_variable, threshold=0.63)
+
+    img_pil[0].save('./orig.png')
+    Image.fromarray(
+        add_boundedbox(x[0], add_heatmap_ts(x[0], img_variable[0], need_transpose_color=False), threshold=0.63,
+                       need_transpose_color=True)).save('./boundbox.png')
+    tsimg2img(t[0]).save('./croped.png')
+
+if __name__ == '__main__':
+    main()

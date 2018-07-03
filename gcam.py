@@ -2,9 +2,7 @@ import cv2
 
 import torch.nn.functional as F
 import torch
-from torchvision.datasets.folder import pil_loader
 from torchvision.transforms import transforms
-
 from common import device
 import numpy as np
 
@@ -88,24 +86,3 @@ _preprocess = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-'''
-def main():
-    model = MURA_Net()
-    model = model.to(device)
-    model.load_state_dict(torch.load('./models/model_50.pth'))
-
-    paths = ['./MURA-v1.0/valid/XR_SHOULDER/patient11791/study1_positive/image1.png',
-             './MURA-v1.0/valid/XR_SHOULDER/patient11791/study1_positive/image2.png',
-             './MURA-v1.0/valid/XR_SHOULDER/patient11791/study1_positive/image3.png',
-             './MURA-v1.0/valid/XR_SHOULDER/patient11791/study1_positive/image4.png'][0:1]
-    img_pil = list(map(pil_loader, paths))
-
-    img_tensor = list(map(_preprocess, img_pil))
-    img_variable = torch.stack(img_tensor).to(device)
-
-    colormap = gcam(model, img_variable)
-    print(colormap)
-
-if __name__ == '__main__':
-    main()
-'''
