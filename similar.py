@@ -98,15 +98,8 @@ def findTOP5pic(model, dataloaders, path):
         plt.show()
 
 def main():
-    dataloaders, dataset_sizes = get_dataloaders(
-        study_name=None,
-        data_dir='MURA-v1.0',
-        batch_size=30,
-        batch_eval_ten=15,
-        shuffle=False
-    )
 
-    usage = "usage: %prog [option] img_path"
+    usage = "usage: %prog [option] img_path dir_path"
     parser = OptionParser(usage)
     parser.add_option('-d', '--draw', help='show the images', action='store_true', default=False,
                       dest='draw')
@@ -116,8 +109,16 @@ def main():
     print('options', options)
     print('args', args)
 
-    if len(args) != 1:
+    if len(args) != 2:
         parser.error('incorrect number of arguments')
+
+    dataloaders, dataset_sizes = get_dataloaders(
+        study_name=None,
+        data_dir=args[1],
+        batch_size=30,
+        batch_eval_ten=15,
+        shuffle=False
+    )
 
     img_path = args[0]
     model = get_pretrained_model('densenet161').to(device)
