@@ -31,7 +31,6 @@ class MURA_Dataset(Dataset):
             self.wt0[name] = (at / (nt + at)).astype(np.float32)
 
     def __init__(self, phase, study_name=None, data_dir='MURA-v1.0', transform=None):
-        assert phase in phases
         if study_name:
             assert study_name in study_names
 
@@ -225,6 +224,20 @@ def get_dataloaders(study_name=None, data_dir='MURA-v1.0', batch_size=8, batch_e
 
     return dataloader, dataset_sizes
 
+def any_dataloader(phase_name, study_name=None, data_dir='MURA-v1.0'):
+    transform = transforms.Compose([
+        transforms.Resize((320, 320)),
+        transforms.CenterCrop(224),
+        # transforms.Resize((224,224)),
+        transforms.ToTensor(),
+        transforms.Lambda(lambda t: {
+            'orig': t,
+            'norm': transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(t)}
+        )
+    ])
+    image_dataset = MURA_Study_Dataset(phase_name, study_name, data_dir, transform)
+    dataloader = DataLoader(image_dataset, batch_size=1, shuffle=False, num_workers=32)
+    return dataloader
 
 def main():
     dataloaders, dataset_sizes = get_dataloaders(None, batch_size=8)

@@ -110,8 +110,8 @@ def main():
 
     usage = "usage: %prog [option] img_path"
     parser = OptionParser(usage)
-    parser.add_option('-i', '--if', help='if only show the address,[y/n]', action='store', type='string', default='n',
-                      dest='if_addr')
+    parser.add_option('-d', '--draw', help='show the images', action='store_true', default=False,
+                      dest='draw')
 
     options, args = parser.parse_args()
 
@@ -124,7 +124,7 @@ def main():
     img_path = args[0]
     model = get_pretrained_model('densenet161').to(device)
 
-    if options.if_addr == 'n':
+    if options.draw:
         findTOP5pic(model, dataloaders, img_path)
     else:
         findTOP5addr(model, dataloaders, img_path)
