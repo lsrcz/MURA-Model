@@ -94,7 +94,7 @@ class AUCMeterMulti:
         allstr = "Areas:\n"
         fig = plt.figure(figsize=(12,9), dpi=180)
         ax = fig.gca()
-        ax.set_title("AUC curves")
+        ax.set_title("ROC curves")
         ax.set_xlabel('fpr')
         ax.set_ylabel('tpr')
         ax.set_xlim(0, 1)
@@ -109,6 +109,7 @@ class AUCMeterMulti:
                 allstr += (name + ": " + ("%.4f" % area) + "\n")
         plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
         plt.text(0.5, 0.5, allstr)
+        #plt.savefig('auc.png')
         plt.show()
 
     def print(self):
