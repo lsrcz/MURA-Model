@@ -39,17 +39,20 @@ def getFeature(model, data, upsample_size=(320, 320)):
     features_blobs = []
     return outputs, features
 
+preprocess = transforms.Compose([
+    transforms.Resize((320, 320)),
+    transforms.CenterCrop(224),
+    # transforms.Resize((224,224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+
+def cross_entropy(a, y):
+    return -np.sum(np.nan_to_num(y*np.log(a)+(1-y)*np.log(1-a)))
+
 def findTOP5addr(model, dataloaders, path):
     model.eval()
 
-    preprocess = transforms.Compose([
-        transforms.Resize((320, 320)),
-        transforms.CenterCrop(224),
-        # transforms.Resize((224,224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-
     paths = [path, path]
     img_pils = map(pil_loader, paths)
     img_tensors = list(map(preprocess, img_pils))
@@ -71,55 +74,13 @@ def findTOP5addr(model, dataloaders, path):
                 similarity[paths[j]] = np.linalg.norm(features[j] - features_ori)
 
     sim = sorted(similarity.items(), key=operator.itemgetter(1), reverse=False)
-
+    path = []
     for i in range(5):
-        print(sim[i][0])
+        path.append(sim[i][0])
+    return path
 
 def findTOP5pic(model, dataloaders, path):
-    model.eval()
-
-    preprocess = transforms.Compose([
-        transforms.Resize((320, 320)),
-        transforms.CenterCrop(224),
-        # transforms.Resize((224,224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-
-    paths = [path, path]
-    img_pils = map(pil_loader, paths)
-    img_tensors = list(map(preprocess, img_pils))
-
-    img_variable = torch.stack(img_tensors).to(device)
-    # img = cv2.imread(path)
-    output, heatmap = gcam(model, img_variable, upsample_size=(320, 320))
-    heatmap = heatmap[0]
-    plt.imshow(add_heatmap_ts(heatmap, img_variable[0]))
-    plt.show()
-
-    # resultimg = Image.fromarray(img)
-    # plt.figure(figsize=(12, 9), dpi=180)
-    # plt.imshow(resultimg)
-    # plt.show()
-    with torch.no_grad():
-        out, features_ori = getFeature(model, img_variable)
-    features_ori = features_ori[0]
-    for i, data in enumerate(tqdm(dataloaders['valid'])):
-        images = data['image']['norm']
-        metadatas = data['metadata']
-        paths = metadatas['path']
-
-        images = images.to(device)
-        with torch.no_grad():
-            o, features = getFeature(model, images)
-            for j in range(images.shape[0]):
-                similarity[paths[j]] = np.linalg.norm(features[j] - features_ori)
-
-    sim = sorted(similarity.items(), key=operator.itemgetter(1), reverse=False)
-
-    path = ['0', '0', '0', '0', '0']
-    for i in range(5):
-        path[i] = sim[i][0]
+    path = findTOP5addr(model, dataloaders, path)
 
     img_pils = map(pil_loader, path)
     img_tensors = list(map(preprocess, img_pils))
@@ -139,6 +100,7 @@ def findTOP5pic(model, dataloaders, path):
         plt.show()
 
 
+
 def main():
     dataloaders, dataset_sizes = get_dataloaders(
         study_name=None,
@@ -152,18 +114,19 @@ def main():
 
     # img_path = 'MURA-v1.0/valid/XR_FOREARM/patient11470/study1_positive/image3.png'
 
-    # img_path = 'MURA-v1.0/train/XR_FOREARM/patient09351/study1_positive/image2.png'
+    img_path = 'MURA-v1.0/train/XR_FOREARM/patient09351/study1_positive/image2.png'
 
     # img_path = 'MURA-v1.0/train/XR_FOREARM/patient09356/study1_positive/image1.png'
 
-    img_path = 'MURA-v1.0/train/XR_SHOULDER/patient01293/study1_positive/image1.png'
+    #img_path = 'MURA-v1.0/train/XR_SHOULDER/patient01293/study1_positive/image1.png'
 
     model = MURA_Net()
     model = model.to(device)
     model.load_state_dict(torch.load('models/model_densenet161_fixed.pth'))
 
-    #findTOP5pic(model, dataloaders, img_path)
-    findTOP5addr(model, dataloaders, img_path)
+    findTOP5pic(model, dataloaders, img_path)
+
+    #findTOP5addr(model, dataloaders, img_path)
 
 
 if __name__ == '__main__':
