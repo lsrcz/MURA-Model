@@ -92,50 +92,20 @@ def train_local(model, optimizer, dataloaders, scheduler, dataset_sizes, num_epo
             costs[phase].append(epoch_loss)
             accs[phase].append(epoch_acc)
 
-
-        for phase in ['valid_study']:
-            model.eval()
-            confusion = ConfusionMatrixMeterMulti()
-            for i, data in enumerate(tqdm(dataloaders[phase])):
-                images = data['images']['norm']
-                labels = data['label'].type(torch.FloatTensor)
-                metadatas = data['metadata']
-                study_name = metadatas['study_name']
-                sizes = metadatas['dataset_size'].numpy()
-
-                images = images.to(device)
-                labels = labels.to(device)
-
-
-                bs, ncrops, c, h, w = images.size()
-                images_view = images.view(-1,c,h,w)
-                _, cam = gcam(model.global_net, images_view)
-                newimgs = crop_heat(cam, images_view).to(device)
-                # outputs = outputs.view(bs, ncrops, -1).mean(1)
-                with torch.no_grad():
-                    outputs = model.local_net(newimgs)
-                    outputs = outputs.view(bs,ncrops,-1).mean(1)
-                    aucmeter[phase].add(outputs, labels)
-
-                preds = (outputs > 0.5).type(torch.LongTensor).reshape(-1)
-                confusion.add(preds, labels, study_name)
-
-            print('{} Acc: {:.4f} F1: {:.4f} Kappa: {:.4f}'.format(
-                phase, confusion.accuracy(), confusion.F1(), confusion.kappa()
-            ))
-            print('{:>13}{:>7}{:>7}{:>7}'.format('Study', 'Acc', 'F1', 'Kappa'))
-            for key in confusion.names:
-                print('{:>13} {:6.4f} {:6.4f} {:6.4f}'.format(
-                    key, confusion.accuracy(key), confusion.F1(key), confusion.kappa(key)
-                ))
-            accs[phase].append(confusion.accuracy())
+            if phase == 'valid':
+                scheduler.step(epoch_loss)
             if phase == 'valid_study':
                 temp_auc ,_, _ = aucmeter.meters['valid_study'].value()
                 if temp_auc > best_acc:
                     best_idx = epoch
                     best_acc = temp_auc
                     best_model_wts = copy.deepcopy(model.state_dict())
-                    torch.save(model.state_dict(), 'models/model_local169_' + str(epoch) + '_' + str(temp_auc) + '_' + str(int(time.mktime(time.localtime(time.time())))) + '.pth')
+                    torch.save(model.state_dict(),
+                               'models/' + name + '_' + str(epoch) + '_' +
+                               str(temp_auc) + '_' +
+                               str(int(time.mktime(time.localtime(time.time()))))
+                               + '.pth')
+
         # aucmeter.plot()
         aucmeter.print()
         time_elapsed = time.time() - since
