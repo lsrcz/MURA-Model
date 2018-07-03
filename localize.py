@@ -8,7 +8,7 @@ from PIL import Image
 from transform import normalize, denormalize
 
 
-def getMaxConnectedComponents(cam, width, height, threshold=0.7):
+def getMaxConnectedComponents(cam, width, height, threshold=0.65):
 
     cam = cv2.resize(cam, (width, height))
     _, bicam = cv2.threshold(cam, threshold * 255, 255, cv2.THRESH_BINARY)
@@ -36,10 +36,10 @@ def add_heatmap(cam, img, need_transpose_color=True):
 def add_heatmap_ts(cam, tsimg, need_transpose_color=True):
     return add_heatmap(cam, denormalize(tsimg.cpu().detach()), need_transpose_color)
 
-def add_boundedbox(cam, img, threshold=0.7, need_transpose_color=False):
+def add_boundedbox(cam, img, threshold=0.65, need_transpose_color=False):
     img = np.array(img)
     height, width, _ = img.shape
-    left, top, width, height, area = getMaxConnectedComponents(cam, width, height)
+    left, top, width, height, area = getMaxConnectedComponents(cam, width, height, threshold)
 
     img = cv2.line(img, (left, top), (left + width, top), (0,0,255),2)
     img = cv2.line(img, (left, top), (left, top + height), (0,0,255),2)
@@ -49,11 +49,12 @@ def add_boundedbox(cam, img, threshold=0.7, need_transpose_color=False):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return img
 
-def add_boundedbox_ts(cam, tsimg, threshold=0.7, need_transpose_color=True):
-    return add_boundedbox(cam, denormalize(tsimg.cpu().detach()), threshold, need_transpose_color)
+def add_boundedbox_ts(cam, tsimg, threshold=0.65, need_transpose_color=True):
+    return add_boundedbox(cam, denormalize(tsimg.cpu().detach()),
+                          threshold=threshold, need_transpose_color=need_transpose_color)
 
 # don't know if it's correct
-def crop_heat(cams, tsimgs, threshold=0.7):
+def crop_heat(cams, tsimgs, threshold=0.65):
     bs = tsimgs.shape[0]
     arr = []
     for i in range(bs):
