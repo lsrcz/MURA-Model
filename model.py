@@ -25,8 +25,8 @@ class MURA_Net(nn.Module):
             self.features = torchvision.models.densenet201(pretrained=True).features
             self.classifier = nn.Linear(1920, 1)
         if networkName == 'resnet50':
-            self.features = torchvision.models.resnet50(pretrained=True).features
-            self.classifier = nn.Linear(1920,1)
+            self.resnet = torchvision.models.resnet50(pretrained=True)
+            self.resnet.fc = nn.Linear(2048,1)
         if networkName == 'vgg19':
             self.features = torchvision.models.vgg19_bn(pretrained=True).features
             self.classifier = nn.Sequential(
@@ -45,14 +45,14 @@ class MURA_Net(nn.Module):
             out = F.relu(features, inplace=True)
             out = F.avg_pool2d(out, kernel_size=7, stride=1).view(features.size(0), -1)
             out = self.classifier(out)
-            out = F.sigmoid(out)
-            return out
         if self.networkName == 'vgg19':
-            x = self.features(x)
-            x = x.view(x.size(0), -1)
-            x = self.classifier(x)
-            return x
-
+            out = self.features(x)
+            out = out.view(out.size(0), -1)
+            out = self.classifier(out)
+        if self.networkName == 'resnet50':
+            out = self.resnet(x)
+        out = F.sigmoid(out)
+        return out
 
 
 class MURA_Net_Binary(nn.Module):
