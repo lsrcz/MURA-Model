@@ -153,7 +153,7 @@ def get_pretrained_model(model_name):
         model = MURA_Net_AG('densenet161')
     else:
         model = MURA_Net(model_name)
-    model.load_state_dict(model_pos[model_name])
+    model.load_state_dict(torch.load(model_pos[model_name]))
     return model
 
 def main():
